@@ -4,10 +4,13 @@
  */
 
 import {
-  extractMFCCs,
+  extractMFCCWithDeltas,
   extractMelSpectrogram,
   extractFormants,
   extractPitch,
+  extractLPCFrames,
+  extractVoicedUnvoiced,
+  extractSpectralFlux,
   crossCorrelationSimilarity,
   melSpectrogramSimilarity,
 } from './dsp.js';
@@ -21,17 +24,13 @@ function simLabel(score) {
 }
 
 // ---------------------------------------------------------------------------
-// M1 — MFCC + DTW
+// M1 — MFCC-39 + DTW
 // ---------------------------------------------------------------------------
 export function runMFCCDTW(samplesA, samplesB, opts = {}) {
-  const numCoeffs = opts.numCoeffs ?? 13;
-
-  const mfccA = extractMFCCs(samplesA, 16000, { numCoeffs });
-  const mfccB = extractMFCCs(samplesB, 16000, { numCoeffs });
-
+  const mfccA = extractMFCCWithDeltas(samplesA, 16000, opts);
+  const mfccB = extractMFCCWithDeltas(samplesB, 16000, opts);
   const result = dtw(mfccA, mfccB);
-  const score = Math.round(distanceToSimilarity(result.distance, 2.0));
-
+  const score = Math.round(distanceToSimilarity(result.distance, 3.0));
   return {
     score,
     label: simLabel(score),
@@ -71,6 +70,54 @@ export function runFormantSimilarity(samplesA, samplesB) {
       dtwDist: result.distance,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// LPC + DTW
+// ---------------------------------------------------------------------------
+export function runLPCSimilarity(samplesA, samplesB) {
+  const lpcA = extractLPCFrames(samplesA, 16000);
+  const lpcB = extractLPCFrames(samplesB, 16000);
+  if (!lpcA.length || !lpcB.length) {
+    return { score: 0, label: 'Insufficient frames', data: {} };
+  }
+  const result = dtw(lpcA, lpcB);
+  const score = Math.round(distanceToSimilarity(result.distance, 1.5));
+  return { score, label: simLabel(score), data: { dtwDist: result.distance } };
+}
+
+// ---------------------------------------------------------------------------
+// V/UV Rhythm
+// ---------------------------------------------------------------------------
+export function runVUVRhythm(samplesA, samplesB) {
+  const vuvA = extractVoicedUnvoiced(samplesA, 16000);
+  const vuvB = extractVoicedUnvoiced(samplesB, 16000);
+  if (vuvA.length < 2 || vuvB.length < 2) {
+    return { score: 0, label: 'Insufficient frames', data: {} };
+  }
+  const wrappedA = Array.from(vuvA, v => new Float64Array([v]));
+  const wrappedB = Array.from(vuvB, v => new Float64Array([v]));
+  const result = dtw(wrappedA, wrappedB);
+  const score = Math.round(distanceToSimilarity(result.distance, 0.3));
+  return {
+    score,
+    label: simLabel(score),
+    data: { dtwDist: result.distance, vuvA, vuvB },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Spectral Flux
+// ---------------------------------------------------------------------------
+export function runSpectralFluxSimilarity(samplesA, samplesB) {
+  const fluxA = extractSpectralFlux(samplesA, 16000);
+  const fluxB = extractSpectralFlux(samplesB, 16000);
+  if (fluxA.length < 2 || fluxB.length < 2) {
+    return { score: 0, label: 'Insufficient frames', data: {} };
+  }
+  const result = dtwScalar(fluxA, fluxB);
+  const score = Math.round(distanceToSimilarity(result.distance, 50));
+  return { score, label: simLabel(score), data: { dtwDist: result.distance } };
 }
 
 // ---------------------------------------------------------------------------
@@ -132,10 +179,31 @@ export function runRawCorrelation(samplesA, samplesB) {
 export const METHOD_DEFS = [
   {
     id: 'mfcc',
-    name: 'MFCC + DTW',
-    subtitle: 'Timbre & spectral shape, time-aligned',
+    name: 'MFCC-39 + DTW',
+    subtitle: 'Timbre & spectral shape with velocity, time-aligned',
     defaultOn: true,
     run: (a, b, opts) => runMFCCDTW(a, b, opts?.mfcc),
+  },
+  {
+    id: 'lpc',
+    name: 'LPC + DTW',
+    subtitle: 'Full vocal tract model — vowels and consonants',
+    defaultOn: true,
+    run: (a, b) => runLPCSimilarity(a, b),
+  },
+  {
+    id: 'vuv',
+    name: 'V/UV Rhythm',
+    subtitle: 'Voiced/unvoiced syllable skeleton pattern',
+    defaultOn: true,
+    run: (a, b) => runVUVRhythm(a, b),
+  },
+  {
+    id: 'sflux',
+    name: 'Spectral Flux',
+    subtitle: 'Phoneme boundary transition rhythm',
+    defaultOn: false,
+    run: (a, b) => runSpectralFluxSimilarity(a, b),
   },
   {
     id: 'formant',
@@ -154,14 +222,14 @@ export const METHOD_DEFS = [
   {
     id: 'pitch',
     name: 'Pitch (F0) Contour',
-    subtitle: 'Intonation & melody similarity',
+    subtitle: 'Prosody / intonation — not a sound mirror method',
     defaultOn: false,
     run: (a, b) => runPitchSimilarity(a, b),
   },
   {
     id: 'rawcorr',
     name: 'Raw Cross-Correlation',
-    subtitle: 'Baseline: direct waveform similarity',
+    subtitle: 'Waveform identity only — not a sound mirror method',
     defaultOn: false,
     run: (a, b) => runRawCorrelation(a, b),
   },
@@ -175,12 +243,12 @@ export const METHOD_DEFS = [
  * @param {object} opts
  * @returns {Map<string, {score, label, data, name}>}
  */
-export function runAnalysis(samplesA, samplesB, enabledIds, opts = {}) {
+export async function runAnalysis(samplesA, samplesB, enabledIds, opts = {}) {
   const results = new Map();
   for (const def of METHOD_DEFS) {
     if (!enabledIds.has(def.id)) continue;
     try {
-      const result = def.run(samplesA, samplesB, opts);
+      const result = await def.run(samplesA, samplesB, opts);
       results.set(def.id, { ...result, name: def.name, id: def.id });
     } catch (err) {
       results.set(def.id, {

@@ -39,13 +39,14 @@ const state = {
   audioB: null,
   processedA: null,
   processedB: null,
-  enabledMethods: new Set(METHOD_DEFS.filter(m => m.defaultOn).map(m => m.id)),
-  preprocessing: { normalize: false, trimSilence: false },
+  enabledMethods: new Set(METHOD_DEFS.map(m => m.id)),
+  preprocessing: { normalize: true, trimSilence: true },
   analysisGoal: 'same-speaker',
   lastResults: null,
   lastHistoryId: null,
   selectedHistoryId: null,
   historyObjectUrls: [],
+  slotPlaybackUrls: { a: null, b: null },
   recorders: { a: new AudioRecorder(), b: new AudioRecorder() },
 };
 
@@ -127,7 +128,7 @@ function enableAllMethods() {
 }
 
 function resetMethodDefaults() {
-  state.enabledMethods = new Set(METHOD_DEFS.filter(method => method.defaultOn).map(method => method.id));
+  state.enabledMethods = new Set(METHOD_DEFS.map(method => method.id));
   renderMethods();
 }
 
@@ -153,6 +154,7 @@ function setupSlot(slot) {
       state[`audio${slot.toUpperCase()}`] = audio;
       state[`processed${slot.toUpperCase()}`] = null;
       setSlotInfo(slotEl, `${file.name} · ${formatDuration(audio.duration)}`);
+      setSlotPlayback(slotEl, slot, audio);
       setSlotHasAudio(slotEl, true);
       drawMiniWaveform(waveCanvas, audio.samples);
       updateCompareButton();
@@ -176,6 +178,7 @@ function setupSlot(slot) {
         state[`processed${slot.toUpperCase()}`] = null;
         const dur = formatDuration(audio.duration);
         setSlotInfo(slotEl, `Recording · ${dur}`);
+        setSlotPlayback(slotEl, slot, audio);
         setSlotHasAudio(slotEl, true);
         drawMiniWaveform(waveCanvas, audio.samples);
         updateCompareButton();
@@ -215,7 +218,7 @@ function restartAnalysis() {
   clearPreviousResults();
   updateCompareButton();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  showToast('Analyzer restarted — fresh page state', 'success');
+  showToast('Sound Mirror restarted — fresh page state', 'success');
 }
 
 function resetAudioSlots() {
@@ -236,6 +239,7 @@ function resetAudioSlots() {
     }
     if (slotEl) {
       setSlotInfo(slotEl, 'No audio loaded');
+      setSlotPlayback(slotEl, slot, null);
       setSlotHasAudio(slotEl, false);
       setSlotLoading(slotEl, false);
     }
@@ -244,11 +248,11 @@ function resetAudioSlots() {
 }
 
 function resetPreprocessingDefaults() {
-  state.preprocessing = { normalize: false, trimSilence: false };
+  state.preprocessing = { normalize: true, trimSilence: true };
   const normalizeEl = $('toggle-normalize');
   const trimEl = $('toggle-trim');
-  if (normalizeEl) normalizeEl.checked = false;
-  if (trimEl) trimEl.checked = false;
+  if (normalizeEl) normalizeEl.checked = true;
+  if (trimEl) trimEl.checked = true;
 }
 
 function resetAnalysisGoalDefault() {
@@ -273,6 +277,24 @@ function clearPreviousResults() {
   });
   const vizEl = $('viz-section');
   if (vizEl) vizEl.style.display = 'none';
+}
+
+function setSlotPlayback(slotEl, slot, audio) {
+  const el = slotEl?.querySelector('.slot-playback');
+  if (!el) return;
+
+  const prevUrl = state.slotPlaybackUrls[slot];
+  if (prevUrl) URL.revokeObjectURL(prevUrl);
+
+  if (!audio?.blob) {
+    state.slotPlaybackUrls[slot] = null;
+    el.innerHTML = '';
+    return;
+  }
+
+  const url = URL.createObjectURL(audio.blob);
+  state.slotPlaybackUrls[slot] = url;
+  el.innerHTML = `<audio controls preload="metadata" src="${url}"></audio>`;
 }
 
 function clearCanvas(canvas) {
@@ -303,7 +325,7 @@ async function runComparison() {
 
     // Run analysis (methods can be slow; yield to keep UI alive)
     await new Promise(r => setTimeout(r, 0));
-    const results = runAnalysis(procA.samples, procB.samples, state.enabledMethods, {});
+    const results = await runAnalysis(procA.samples, procB.samples, state.enabledMethods, {});
     state.lastResults = results;
 
     renderResults(results, procA, procB);
