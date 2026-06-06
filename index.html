@@ -12,12 +12,223 @@
 
   <header class="app-header">
     <div class="app-header-inner">
-      <h1 class="app-title">Audio Similarity Analyzer</h1>
-      <p class="app-subtitle">Compare two audio clips using acoustic feature analysis — purely signal-based, no speech recognition.</p>
+      <div class="header-row">
+        <div>
+          <h1 class="app-title">Audio Similarity Analyzer</h1>
+          <p class="app-subtitle">Compare two audio clips using acoustic feature analysis — purely signal-based, no speech recognition.</p>
+        </div>
+        <nav class="header-nav">
+          <button class="nav-tab nav-tab--active" id="tab-analyzer" data-page="analyzer">Analyzer</button>
+          <button class="nav-tab" id="tab-guide" data-page="guide">How it works</button>
+        </nav>
+      </div>
     </div>
   </header>
 
-  <main class="app-main">
+  <!-- ── Guide page ──────────────────────────────────────────── -->
+  <div id="page-guide" class="guide-page" style="display:none">
+    <div class="guide-inner">
+
+      <section class="guide-section">
+        <h2 class="guide-h2">Tại sao không so sánh dạng sóng thô?</h2>
+        <p>Cùng một từ do hai người đọc sẽ cho dạng sóng hoàn toàn khác nhau — khác tốc độ, khác cao độ, khác âm sắc. So sánh trực tiếp mẫu PCM cho kết quả gần như ngẫu nhiên. Cần <strong>trích đặc trưng</strong> rồi <strong>căn chỉnh thời gian</strong> trước khi đo độ giống.</p>
+        <div class="guide-flow">
+          <div class="flow-step">Tín hiệu thô<br/><span class="flow-sub">PCM samples</span></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Trích đặc trưng<br/><span class="flow-sub">MFCC / Formant / Pitch…</span></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Căn chỉnh thời gian<br/><span class="flow-sub">Dynamic Time Warping</span></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step">Điểm %<br/><span class="flow-sub">0 – 100</span></div>
+        </div>
+      </section>
+
+      <section class="guide-section">
+        <h2 class="guide-h2">Preprocessing</h2>
+        <div class="guide-cards">
+          <div class="guide-card">
+            <div class="guide-card-icon">⚡</div>
+            <h3>Normalize loudness</h3>
+            <p>Chuẩn hóa biên độ về cùng mức RMS trước khi phân tích. Giúp phương pháp không bị ảnh hưởng bởi việc một clip to hơn clip kia.</p>
+            <p class="guide-formula">RMS = √(Σ x²/N) &nbsp;→&nbsp; x' = x · target / RMS</p>
+          </div>
+          <div class="guide-card">
+            <div class="guide-card-icon">✂️</div>
+            <h3>Trim silence</h3>
+            <p>Cắt bỏ khoảng lặng đầu và cuối dựa trên ngưỡng năng lượng. Loại bỏ thời gian "chuẩn bị" trước khi nói, giúp DTW căn chỉnh phần âm thanh thực sự.</p>
+            <p class="guide-formula">Ngưỡng: 1% năng lượng đỉnh &nbsp;|&nbsp; Lookahead: 50ms</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="guide-section">
+        <h2 class="guide-h2">Các phương pháp phân tích</h2>
+
+        <div class="method-explain" id="exp-m1">
+          <div class="method-explain-header">
+            <span class="method-badge method-badge--on">M1</span>
+            <h3>MFCC + DTW <em>(Mel-Frequency Cepstral Coefficients)</em></h3>
+            <span class="method-badge method-badge--default">Mặc định ON</span>
+          </div>
+          <p><strong>Đo cái gì:</strong> Bao hình phổ / âm sắc tổng thể, bất kể độ dài clip.</p>
+          <div class="guide-steps">
+            <div class="step"><span class="step-num">1</span><div><strong>Pre-emphasis:</strong> y[n] = x[n] − 0.97·x[n−1] — nhấn mạnh tần số cao để bù suy hao phổ tự nhiên.</div></div>
+            <div class="step"><span class="step-num">2</span><div><strong>Framing:</strong> Chia tín hiệu thành khung 25ms, hop 10ms, nhân cửa sổ Hann.</div></div>
+            <div class="step"><span class="step-num">3</span><div><strong>FFT:</strong> Biến đổi Fourier → phổ biên độ.</div></div>
+            <div class="step"><span class="step-num">4</span><div><strong>Mel filterbank:</strong> 26 bộ lọc tam giác trên thang Mel (mô phỏng tai người — dày ở tần số thấp, thưa ở tần số cao).</div></div>
+            <div class="step"><span class="step-num">5</span><div><strong>Log + DCT:</strong> Lấy log năng lượng → biến đổi cosine rời rạc → 13 hệ số MFCC.</div></div>
+            <div class="step"><span class="step-num">6</span><div><strong>DTW:</strong> So sánh chuỗi 13D giữa A và B với căn chỉnh đàn hồi theo thời gian.</div></div>
+          </div>
+          <div class="guide-formula-box">
+            <code>similarity = 100 · exp(−distance / 2.0)</code>
+            <span class="formula-note">distance = tổng chi phí DTW / độ dài đường đi</span>
+          </div>
+          <div class="guide-notes">
+            <span class="note-pro">✓ Nhanh, không cần model, agnostic ngôn ngữ</span>
+            <span class="note-con">✗ Lẫn giọng người nói; nhạy với nhiễu</span>
+          </div>
+          <div class="guide-example">
+            <strong>Ví dụ:</strong> <em>father</em> vs <em>harder</em> — chia sẻ cấu trúc âm vị gần nhau → MFCC chuỗi sẽ có hình dạng phổ tương tự → điểm cao (~65–75%).
+          </div>
+        </div>
+
+        <div class="method-explain" id="exp-m2">
+          <div class="method-explain-header">
+            <span class="method-badge method-badge--off">M2</span>
+            <h3>Formant similarity <em>(F1, F2)</em></h3>
+          </div>
+          <p><strong>Đo cái gì:</strong> Quỹ đạo formant — đặc trưng chất nguyên âm. Giải thích vì sao <em>father</em> ~ <em>harder</em>: cả hai chia sẻ nguyên âm /ɑː/ với F1≈700Hz, F2≈1100Hz.</p>
+          <div class="guide-steps">
+            <div class="step"><span class="step-num">1</span><div><strong>LPC order 12:</strong> Lấy hệ số dự đoán tuyến tính bằng giải thuật Levinson-Durbin.</div></div>
+            <div class="step"><span class="step-num">2</span><div><strong>Tìm nghiệm đa thức LPC:</strong> Các cặp nghiệm phức liên hợp tương ứng với formant (cộng hưởng của khoang miệng).</div></div>
+            <div class="step"><span class="step-num">3</span><div><strong>Trích F1, F2:</strong> Hai formant tần số thấp nhất (50–4000Hz), chỉ trên khung hữu thanh.</div></div>
+            <div class="step"><span class="step-num">4</span><div><strong>DTW 2D:</strong> So sánh chuỗi [F1, F2] của A và B.</div></div>
+          </div>
+          <div class="guide-notes">
+            <span class="note-pro">✓ Trực tiếp phản ánh cách phát âm nguyên âm</span>
+            <span class="note-con">✗ Chỉ có nghĩa với phụ âm hữu thanh/nguyên âm; trích formant dễ sai khi có nhiễu</span>
+          </div>
+        </div>
+
+        <div class="method-explain" id="exp-m3">
+          <div class="method-explain-header">
+            <span class="method-badge method-badge--off">M3</span>
+            <h3>Mel-spectrogram correlation</h3>
+          </div>
+          <p><strong>Đo cái gì:</strong> Mức độ tương đồng của mẫu năng lượng theo thời gian–tần số. Không dùng DCT như MFCC — giữ nguyên 40 dải Mel → bức tranh "màu âm" đầy đủ hơn.</p>
+          <div class="guide-steps">
+            <div class="step"><span class="step-num">1</span><div>Tính Mel spectrogram (40 bands, log scale) cho cả A và B.</div></div>
+            <div class="step"><span class="step-num">2</span><div>Flatten thành vector 1D, chuẩn hóa về mean=0, std=1.</div></div>
+            <div class="step"><span class="step-num">3</span><div>Tính normalized cross-correlation (dot product của hai vector đã chuẩn hóa).</div></div>
+          </div>
+          <div class="guide-formula-box">
+            <code>sim = 100 · max(0, correlation) / N</code>
+          </div>
+          <div class="guide-notes">
+            <span class="note-pro">✓ Trực quan khi xem cạnh spectrogram visualization</span>
+            <span class="note-con">✗ Nhạy với khác biệt độ dài; không căn chỉnh thời gian</span>
+          </div>
+        </div>
+
+        <div class="method-explain" id="exp-m5">
+          <div class="method-explain-header">
+            <span class="method-badge method-badge--off">M5</span>
+            <h3>Pitch (F0) contour</h3>
+          </div>
+          <p><strong>Đo cái gì:</strong> Độ giống của đường ngữ điệu / cao độ. Quan trọng khi so sánh cùng câu đọc với ngữ điệu khác nhau, hoặc kiểm tra xem hai người có "lên xuống" giống nhau không.</p>
+          <div class="guide-steps">
+            <div class="step"><span class="step-num">1</span><div><strong>Autocorrelation:</strong> Với mỗi khung, tìm lag cho tương quan cực đại trong khoảng 50–500Hz (tức lag 32–320 mẫu ở 16kHz).</div></div>
+            <div class="step"><span class="step-num">2</span><div>Chỉ giữ khung hữu thanh (autocorrelation đủ cao). Loại khung vô thanh.</div></div>
+            <div class="step"><span class="step-num">3</span><div><strong>DTW scalar:</strong> Căn chỉnh chuỗi F0 của A và B → khoảng cách trung bình theo Hz.</div></div>
+          </div>
+          <div class="guide-notes">
+            <span class="note-pro">✓ Phản ánh ngữ điệu, đặc biệt hữu ích với tiếng có thanh điệu (tiếng Việt, tiếng Hoa)</span>
+            <span class="note-con">✗ Vô nghĩa khi so âm vô thanh; giọng khác nhau có F0 baseline rất khác</span>
+          </div>
+        </div>
+
+        <div class="method-explain" id="exp-m6">
+          <div class="method-explain-header">
+            <span class="method-badge method-badge--off">M6</span>
+            <h3>Raw cross-correlation <em>(đường cơ sở)</em></h3>
+          </div>
+          <p><strong>Đo cái gì:</strong> Tương quan dạng sóng thô sau khi căn chỉnh pha — <em>baseline để thấy tại sao cần các method tốt hơn</em>.</p>
+          <div class="guide-steps">
+            <div class="step"><span class="step-num">1</span><div>Chuẩn hóa cả hai signal về unit energy.</div></div>
+            <div class="step"><span class="step-num">2</span><div>Tính cross-correlation, lấy giá trị cực đại (tốt nhất về pha).</div></div>
+          </div>
+          <div class="guide-notes">
+            <span class="note-pro">✓ Siêu nhanh, không có tham số</span>
+            <span class="note-con">✗ Rất nhạy với giọng người nói, độ dài, nhiễu — kết quả thường thấp dù hai clip "giống nhau"</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="guide-section">
+        <h2 class="guide-h2">Đọc kết quả đúng cách</h2>
+        <div class="guide-cards">
+          <div class="guide-card guide-card--warn">
+            <div class="guide-card-icon">📊</div>
+            <h3>Điểm là tương đối, không tuyệt đối</h3>
+            <p>80% của M1 <strong>không thể so sánh</strong> với 80% của M6. Mỗi method dùng công thức ánh xạ khác nhau, scale khác nhau. Chỉ so điểm trong cùng một method.</p>
+          </div>
+          <div class="guide-card guide-card--warn">
+            <div class="guide-card-icon">🎯</div>
+            <h3>Chọn method theo mục đích</h3>
+            <ul class="guide-list">
+              <li>So phát âm (cùng từ, cùng ngữ cảnh) → <strong>M1 MFCC + M2 Formant</strong></li>
+              <li>So ngữ điệu / thanh điệu → <strong>M5 Pitch</strong></li>
+              <li>Kiểm tra TTS vs giọng thật → <strong>M1 + M3</strong></li>
+              <li>Baseline / debug → <strong>M6</strong></li>
+            </ul>
+          </div>
+          <div class="guide-card">
+            <div class="guide-card-icon">🔢</div>
+            <h3>Nhãn diễn giải</h3>
+            <table class="score-table">
+              <tr><th>Điểm</th><th>Nhãn</th><th>Ý nghĩa thực tế</th></tr>
+              <tr><td>≥ 80%</td><td>Very similar</td><td>Rất giống — cùng từ/cụm từ, phát âm tương đồng cao</td></tr>
+              <tr><td>60–79%</td><td>Quite similar</td><td>Khá giống — cùng âm vị cốt lõi, có thể khác giọng/tốc độ</td></tr>
+              <tr><td>40–59%</td><td>Somewhat similar</td><td>Hơi giống — chia sẻ một số đặc trưng âm nhưng khác nhiều</td></tr>
+              <tr><td>&lt; 40%</td><td>Different</td><td>Khác — không chia sẻ đặc trưng âm đáng kể</td></tr>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="guide-section">
+        <h2 class="guide-h2">Dynamic Time Warping (DTW) là gì?</h2>
+        <p>DTW là giải thuật căn chỉnh hai chuỗi thời gian có độ dài khác nhau bằng cách co giãn trục thời gian. Giúp so sánh hai đoạn âm dù một người nói nhanh hơn người kia.</p>
+        <div class="dtw-diagram">
+          <div class="dtw-row">
+            <div class="dtw-cell dtw-A">A₁</div><div class="dtw-cell dtw-A">A₂</div><div class="dtw-cell dtw-A">A₃</div><div class="dtw-cell dtw-A">A₄</div><div class="dtw-cell dtw-A">A₅</div>
+          </div>
+          <div class="dtw-arrows">↕ căn chỉnh đàn hồi — A₂ có thể map vào B₂ và B₃</div>
+          <div class="dtw-row">
+            <div class="dtw-cell dtw-B">B₁</div><div class="dtw-cell dtw-B">B₂</div><div class="dtw-cell dtw-B">B₃</div><div class="dtw-cell dtw-B">B₄</div><div class="dtw-cell dtw-B">B₅</div><div class="dtw-cell dtw-B">B₆</div>
+          </div>
+        </div>
+        <p style="margin-top:12px">Ma trận DTW hiển thị trong phần visualization cho thấy đường căn chỉnh tối ưu: đường đi từ góc trên-trái đến góc dưới-phải qua vùng chi phí thấp nhất (màu tối).</p>
+      </section>
+
+      <section class="guide-section">
+        <h2 class="guide-h2">Thang Mel là gì?</h2>
+        <p>Thang Mel mô phỏng cách tai người cảm nhận tần số: <strong>phân giải cao ở tần số thấp</strong> (thoại, nguyên âm), <strong>phân giải thấp ở tần số cao</strong>. Công thức chuyển đổi:</p>
+        <div class="guide-formula-box">
+          <code>mel = 2595 · log₁₀(1 + Hz / 700)</code>
+        </div>
+        <p style="margin-top:8px">MFCC dùng 26 bộ lọc Mel → đủ để nắm bắt đặc trưng quan trọng của giọng nói mà không bị nhiễu bởi chi tiết tần số cao ít quan trọng.</p>
+      </section>
+
+      <section class="guide-section">
+        <h2 class="guide-h2">Quyền riêng tư</h2>
+        <p>Toàn bộ xử lý chạy trong trình duyệt của bạn bằng Web Audio API và JavaScript thuần. <strong>Không có âm thanh nào được gửi lên server.</strong> Dữ liệu audio chỉ tồn tại trong bộ nhớ RAM của tab hiện tại.</p>
+      </section>
+
+    </div>
+  </div>
+
+  <main class="app-main" id="page-analyzer">
 
     <!-- ── Input slots ──────────────────────────────────────── -->
     <section class="section">
@@ -148,5 +359,17 @@
   </footer>
 
   <script type="module" src="src/main.js"></script>
+  <script>
+    // Tab switching — guide page vs analyzer page
+    document.querySelectorAll('.nav-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const page = btn.dataset.page;
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('nav-tab--active'));
+        btn.classList.add('nav-tab--active');
+        document.getElementById('page-analyzer').style.display = page === 'analyzer' ? '' : 'none';
+        document.getElementById('page-guide').style.display = page === 'guide' ? '' : 'none';
+      });
+    });
+  </script>
 </body>
 </html>
