@@ -584,10 +584,10 @@ async function renderHistoryDetail(entry) {
           <span>Human verdict</span>
           <select id="history-human-verdict">
             ${renderSelectOption('unreviewed', 'Unreviewed', review.humanVerdict)}
-            ${renderSelectOption('similar', 'Human: Similar', review.humanVerdict)}
-            ${renderSelectOption('different', 'Human: Different', review.humanVerdict)}
-            ${renderSelectOption('inconclusive', 'Human: Inconclusive', review.humanVerdict)}
-            ${renderSelectOption('bad-data', 'Bad data / cannot judge', review.humanVerdict)}
+            ${renderSelectOption('very-similar', 'Very Similar', review.humanVerdict)}
+            ${renderSelectOption('similar', 'Similar', review.humanVerdict)}
+            ${renderSelectOption('different', 'Different', review.humanVerdict)}
+            ${renderSelectOption('very-different', 'Very Different', review.humanVerdict)}
           </select>
         </label>
         <label class="settings-field">
