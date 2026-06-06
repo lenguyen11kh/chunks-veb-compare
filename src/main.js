@@ -32,6 +32,7 @@ const state = {
   processedB: null,
   enabledMethods: new Set(METHOD_DEFS.filter(m => m.defaultOn).map(m => m.id)),
   preprocessing: { normalize: false, trimSilence: false },
+  analysisGoal: 'same-speaker',
   lastResults: null,
   recorders: { a: new AudioRecorder(), b: new AudioRecorder() },
 };
@@ -50,6 +51,8 @@ function init() {
     state.preprocessing.trimSilence = e.target.checked;
   });
 
+  setupAnalysisGoal();
+
   // Method cards
   renderMethodCards($('methods-container'), state.enabledMethods, (id, enabled) => {
     if (enabled) state.enabledMethods.add(id);
@@ -61,8 +64,9 @@ function init() {
   setupSlot('a');
   setupSlot('b');
 
-  // Compare button
+  // Compare + restart buttons
   $('btn-compare').addEventListener('click', runComparison);
+  $('btn-restart')?.addEventListener('click', restartAnalysis);
 
   // Export + AI explanation buttons
   $('btn-export').addEventListener('click', handleExport);
@@ -70,6 +74,26 @@ function init() {
 
   setupLLMSettings();
   updateCompareButton();
+}
+
+// ---------------------------------------------------------------------------
+// Analysis goal setup
+// ---------------------------------------------------------------------------
+function setupAnalysisGoal() {
+  const goalEl = $('analysis-goal');
+  if (!goalEl) return;
+  goalEl.value = state.analysisGoal;
+  updateAnalysisGoalDescription();
+  goalEl.addEventListener('change', () => {
+    state.analysisGoal = goalEl.value;
+    updateAnalysisGoalDescription();
+  });
+}
+
+function updateAnalysisGoalDescription() {
+  const descEl = $('analysis-goal-description');
+  if (!descEl) return;
+  descEl.textContent = getAnalysisGoalConfig(state.analysisGoal).description;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +121,7 @@ function setupSlot(slot) {
       setSlotHasAudio(slotEl, true);
       drawMiniWaveform(waveCanvas, audio.samples);
       updateCompareButton();
+      clearPreviousResults();
       showToast(`Audio ${slot.toUpperCase()} loaded`, 'success');
     } catch (err) {
       showToast(`Error loading file: ${err.message}`, 'error');
@@ -119,6 +144,7 @@ function setupSlot(slot) {
         setSlotHasAudio(slotEl, true);
         drawMiniWaveform(waveCanvas, audio.samples);
         updateCompareButton();
+        clearPreviousResults();
         showToast(`Audio ${slot.toUpperCase()} recorded`, 'success');
       } catch (err) {
         showToast(`Recording error: ${err.message}`, 'error');
@@ -140,8 +166,63 @@ function setupSlot(slot) {
 }
 
 // ---------------------------------------------------------------------------
-// Compare
+// Restart + compare
 // ---------------------------------------------------------------------------
+function restartAnalysis() {
+  for (const slot of ['a', 'b']) {
+    const recorder = state.recorders[slot];
+    recorder.cancel?.();
+    state[`audio${slot.toUpperCase()}`] = null;
+    state[`processed${slot.toUpperCase()}`] = null;
+    const slotEl = $(`slot-${slot}`);
+    const uploadInput = $(`upload-${slot}`);
+    const recordBtn = $(`btn-record-${slot}`);
+    const waveCanvas = $(`wave-preview-${slot}`);
+    if (uploadInput) uploadInput.value = '';
+    if (recordBtn) {
+      recordBtn.textContent = '● Record';
+      recordBtn.disabled = false;
+      recordBtn.classList.remove('btn-record--active');
+    }
+    if (slotEl) {
+      setSlotInfo(slotEl, 'No audio loaded');
+      setSlotHasAudio(slotEl, false);
+      setSlotLoading(slotEl, false);
+    }
+    clearCanvas(waveCanvas);
+  }
+
+  state.lastResults = null;
+  state.processedA = null;
+  state.processedB = null;
+  clearPreviousResults();
+  updateCompareButton();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Analyzer restarted', 'success');
+}
+
+function clearPreviousResults() {
+  state.lastResults = null;
+  const resultsSection = $('results-section');
+  const aiPanel = $('ai-analysis-panel');
+  const aiOutput = $('ai-analysis-output');
+  if (resultsSection) resultsSection.style.display = 'none';
+  if (aiPanel) aiPanel.style.display = 'none';
+  if (aiOutput) aiOutput.textContent = 'Chưa có phân tích AI.';
+  ['score-cards', 'multi-comparison'].forEach(id => {
+    const el = $(id);
+    if (el) el.innerHTML = '';
+  });
+  const vizEl = $('viz-section');
+  if (vizEl) vizEl.style.display = 'none';
+}
+
+function clearCanvas(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
 async function runComparison() {
   if (!state.audioA || !state.audioB) return;
   if (state.enabledMethods.size === 0) {
@@ -380,11 +461,29 @@ async function handleAIAnalysis() {
     const text = await callLLM(settings, [
       {
         role: 'system',
-        content: 'Bạn là chuyên gia giải thích kết quả audio similarity. Trả lời bằng tiếng Việt, dễ hiểu, không khẳng định quá mức. Không yêu cầu dữ liệu audio gốc.',
+        content: `Bạn là chuyên gia giải thích kết quả audio similarity cho CHUNKS. Trả lời bằng tiếng Việt, dễ hiểu, không khẳng định quá mức. Không yêu cầu dữ liệu audio gốc. Nhiệm vụ chính là trả lời đúng mục tiêu phân tích đã chọn: "${summary.analysisGoal.question}".`,
       },
       {
         role: 'user',
-        content: `Hãy đọc JSON kết quả sau và đưa đánh giá cơ bản:\n- Tóm tắt mức độ giống nhau tổng thể\n- Method nào đáng tin hơn trong tình huống này\n- Điểm nào cần thận trọng\n- Gợi ý bước kiểm tra tiếp theo\n\nJSON:\n${JSON.stringify(summary, null, 2)}`,
+        content: `Đọc JSON kết quả và đưa verdict theo đúng analysisGoal, không chỉ tóm tắt điểm số.
+
+Bắt buộc trả lời theo format:
+1. **Kết luận** → Similar / Different / Inconclusive cho câu hỏi: ${summary.analysisGoal.question}
+2. **Độ tin cậy** → Low / Medium / High, kèm lý do ngắn.
+3. **Bằng chứng chính** → method nào quyết định nhiều nhất và vì sao.
+4. **Mâu thuẫn / cảnh báo dữ liệu** → độ dài, frame lệch, trim silence, method nhiễu.
+5. **Bước tiếp theo** → hành động cụ thể để làm kết quả đáng tin hơn.
+
+Quy tắc diễn giải:
+- Ưu tiên theo analysisGoal.reliabilityOrder, không lấy average score làm bằng chứng duy nhất.
+- Nếu duration quá ngắn, frame lệch lớn, hoặc nhiều method mâu thuẫn: kết luận Inconclusive hoặc giảm confidence.
+- Với same-speaker: không gọi đây là xác thực danh tính; chỉ nói giống/khác về đặc trưng âm học.
+- Nếu score chính < 45 và đa số method thấp: nghiêng Different.
+- Nếu score chính > 70 và method hỗ trợ cùng cao: nghiêng Similar.
+- Vùng 45–70 hoặc dữ liệu kém: nghiêng Inconclusive/Partial.
+
+JSON:
+${JSON.stringify(summary, null, 2)}`,
       },
     ], 900);
     output.textContent = text;
@@ -396,6 +495,7 @@ async function handleAIAnalysis() {
 
 function buildAnalysisSummary() {
   const entries = [...state.lastResults.values()];
+  const goalConfig = getAnalysisGoalConfig(state.analysisGoal);
   const methods = entries.map(r => ({
     id: r.id,
     name: r.name,
@@ -406,6 +506,13 @@ function buildAnalysisSummary() {
   const scores = methods.map(m => m.score).filter(Number.isFinite);
   return {
     generatedAt: new Date().toISOString(),
+    analysisGoal: {
+      id: state.analysisGoal,
+      label: goalConfig.label,
+      question: goalConfig.question,
+      interpretation: goalConfig.interpretation,
+      reliabilityOrder: goalConfig.reliabilityOrder,
+    },
     audio: {
       a: { fileName: state.audioA?.fileName || 'Recording/Audio A', durationSeconds: round2(state.audioA?.duration) },
       b: { fileName: state.audioB?.fileName || 'Recording/Audio B', durationSeconds: round2(state.audioB?.duration) },
@@ -420,6 +527,40 @@ function buildAnalysisSummary() {
     } : null,
     note: 'Scores are heuristic acoustic feature similarity only, not ground truth.',
   };
+}
+
+function getAnalysisGoalConfig(goalId) {
+  const goals = {
+    'same-speaker': {
+      label: 'Voice similarity / possible same speaker',
+      question: 'Hai audio có đủ giống nhau về giọng/âm sắc để nghi là cùng giọng hoặc rất giống giọng không?',
+      description: 'AI sẽ ưu tiên MFCC + DTW và phổ giọng để trả lời: hai clip có đủ giống nhau về giọng/âm sắc hay không.',
+      interpretation: 'Tập trung vào timbre, spectral envelope, formant support, pitch chỉ là phụ. Không xác minh danh tính.',
+      reliabilityOrder: ['mfcc', 'melspec', 'formant', 'pitch', 'rawcorr'],
+    },
+    pronunciation: {
+      label: 'Pronunciation / same phrase similarity',
+      question: 'Hai audio có giống cách phát âm, nhịp đọc hoặc cùng nội dung/câu nói không?',
+      description: 'AI sẽ ưu tiên MFCC + DTW, formant và pitch contour để đánh giá cách phát âm/nhịp đọc, không mặc định là cùng người nói.',
+      interpretation: 'Tập trung vào cách phát âm, nguyên âm, cao độ và căn chỉnh thời gian; khác speaker vẫn có thể similar một phần.',
+      reliabilityOrder: ['mfcc', 'formant', 'pitch', 'melspec', 'rawcorr'],
+    },
+    'overall-sound': {
+      label: 'Overall acoustic similarity',
+      question: 'Hai audio có giống âm thanh tổng thể, texture, năng lượng và phổ không?',
+      description: 'AI sẽ cân bằng Mel spectrogram, MFCC và raw correlation để nhận xét độ giống âm thanh tổng thể/texture.',
+      interpretation: 'Tập trung vào cảm giác âm thanh tổng quát; không suy luận người nói hoặc nội dung.',
+      reliabilityOrder: ['melspec', 'mfcc', 'rawcorr', 'pitch', 'formant'],
+    },
+    'custom-review': {
+      label: 'Technical result review',
+      question: 'Kết quả kỹ thuật đang nói gì và có rủi ro diễn giải sai ở đâu?',
+      description: 'AI sẽ đọc kỹ thuật, chỉ ra method đáng tin/yếu, cảnh báo dữ liệu kém và không ép kết luận giống/khác.',
+      interpretation: 'Tập trung kiểm định chất lượng kết quả, mâu thuẫn giữa method và bước debug tiếp theo.',
+      reliabilityOrder: ['mfcc', 'melspec', 'formant', 'pitch', 'rawcorr'],
+    },
+  };
+  return goals[goalId] || goals['same-speaker'];
 }
 
 function summarizeResultData(data = {}) {
