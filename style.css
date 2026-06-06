@@ -238,6 +238,8 @@ a:focus-visible {
 .slot--has-audio .slot-wave-area { display: block; }
 .wave-canvas { display: block; width: 100%; height: 72px; background: #f1f1f1; }
 .slot-info { color: var(--faint); font-size: 9px; font-weight: 700; }
+.slot-playback { margin-top: 10px; }
+.slot-playback audio { width: 100%; height: 32px; }
 .slot--has-audio .slot-info { color: var(--primary); }
 
 /* Preprocessing */
@@ -718,4 +720,46 @@ a:focus-visible {
   .results-actions { width: 100%; }
   .settings-actions .btn,
   .results-actions .btn { flex: 1; }
+}
+
+/* Verdict strip */
+.verdict-strip {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--border, #e5e5e5);
+  background: #fff;
+}
+
+.verdict-strip-label {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #71717a;
+  margin-bottom: 10px;
+}
+
+.verdict-strip-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.verdict-btn {
+  padding: 7px 16px;
+  border: 1px solid #e5e5e5;
+  background: #fff;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.verdict-btn:hover {
+  border-color: #bf080b;
+}
+
+.verdict-btn--active {
+  background: #bf080b;
+  color: #fff;
+  border-color: #bf080b;
 }

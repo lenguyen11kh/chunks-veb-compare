@@ -14,6 +14,7 @@ import {
   setSlotHasAudio,
   showToast,
   exportResultsToJSON,
+  renderVerdictStrip,
 } from './ui.js';
 import {
   drawMiniWaveform,
@@ -379,6 +380,23 @@ function renderResults(results, procA, procB) {
 
   // Visualizations
   renderVisualizations(results, procA, procB);
+
+  // Verdict strip
+  const verdictContainer = $('verdict-strip-container');
+  if (verdictContainer) {
+    const strip = renderVerdictStrip(null, async (verdict) => {
+      if (!state.lastHistoryId) return;
+      await updateAnalysisReview(state.lastHistoryId, {
+        humanVerdict: verdict,
+        notes: '',
+        methodLabels: Object.fromEntries([...results.keys()].map(id => [id, 'unreviewed'])),
+        reviewedAt: new Date().toISOString(),
+      });
+      showToast(`Verdict saved: ${verdict}`, 'success');
+    });
+    verdictContainer.innerHTML = '';
+    verdictContainer.appendChild(strip);
+  }
 }
 
 function renderVisualizations(results, procA, procB) {

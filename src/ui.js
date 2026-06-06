@@ -266,3 +266,43 @@ export function exportResultsToJSON(results, audioMeta) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// ---------------------------------------------------------------------------
+// Verdict strip
+// ---------------------------------------------------------------------------
+
+const VERDICT_OPTIONS = [
+  { value: 'very-similar', label: 'Very Similar' },
+  { value: 'similar', label: 'Similar' },
+  { value: 'different', label: 'Different' },
+  { value: 'very-different', label: 'Very Different' },
+];
+
+export function renderVerdictStrip(currentVerdict, onChange) {
+  const strip = document.createElement('div');
+  strip.className = 'verdict-strip';
+
+  const label = document.createElement('div');
+  label.className = 'verdict-strip-label';
+  label.textContent = 'YOUR VERDICT';
+  strip.appendChild(label);
+
+  const buttons = document.createElement('div');
+  buttons.className = 'verdict-strip-buttons';
+
+  for (const opt of VERDICT_OPTIONS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'verdict-btn' + (opt.value === currentVerdict ? ' verdict-btn--active' : '');
+    btn.textContent = opt.label;
+    btn.dataset.verdict = opt.value;
+    btn.addEventListener('click', () => {
+      strip.querySelectorAll('.verdict-btn').forEach(b => b.classList.remove('verdict-btn--active'));
+      btn.classList.add('verdict-btn--active');
+      onChange(opt.value);
+    });
+    buttons.appendChild(btn);
+  }
+  strip.appendChild(buttons);
+  return strip;
+}
