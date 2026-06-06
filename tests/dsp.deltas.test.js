@@ -27,3 +27,22 @@ describe('extractMFCCWithDeltas', () => {
     expect(hasNonZero).toBe(true);
   });
 });
+
+import { extractLPCFrames } from '../src/dsp.js';
+
+describe('extractLPCFrames', () => {
+  it('returns frames each with lpcOrder coefficients', () => {
+    const samples = sineWave(440, 16000, 0.5);
+    const frames = extractLPCFrames(samples, 16000, { lpcOrder: 12 });
+    expect(frames.length).toBeGreaterThan(0);
+    expect(frames[0].length).toBe(12);
+  });
+
+  it('coefficients are non-zero for a voiced signal', () => {
+    const samples = sineWave(220, 16000, 0.5);
+    const frames = extractLPCFrames(samples, 16000);
+    const midFrame = frames[Math.floor(frames.length / 2)];
+    const hasNonZero = Array.from(midFrame).some(v => Math.abs(v) > 1e-8);
+    expect(hasNonZero).toBe(true);
+  });
+});

@@ -529,6 +529,28 @@ export function extractFormants(samples, sampleRate) {
   };
 }
 
+/**
+ * Extract LPC coefficient frames (reuses computeLPC per frame).
+ * @param {Float32Array} samples - mono audio
+ * @param {number} sampleRate
+ * @param {Object} opts
+ * @returns {Array<Float64Array>} frames × lpcOrder
+ */
+export function extractLPCFrames(samples, sampleRate, opts = {}) {
+  const { lpcOrder = 12, frameSizeMs = 25, hopSizeMs = 10 } = opts;
+  const frameSize = Math.round((frameSizeMs / 1000) * sampleRate);
+  const hopSize = Math.round((hopSizeMs / 1000) * sampleRate);
+  const emphasized = preEmphasis(samples);
+  const hann = hannWindow(frameSize);
+  const result = [];
+  for (let start = 0; start + frameSize <= emphasized.length; start += hopSize) {
+    const frame = new Float64Array(frameSize);
+    for (let i = 0; i < frameSize; i++) frame[i] = emphasized[start + i] * hann[i];
+    result.push(computeLPC(frame, lpcOrder));
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Pitch (F0) tracking via autocorrelation
 // ---------------------------------------------------------------------------
