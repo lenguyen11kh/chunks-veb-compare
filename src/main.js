@@ -15,7 +15,9 @@ import {
   showToast,
   exportResultsToJSON,
   renderVerdictStrip,
+  renderMethodPerformancePanel,
 } from './ui.js';
+import { computeMethodPerformance } from './methodEvaluator.js';
 import {
   drawMiniWaveform,
   drawStackedWaveforms,
@@ -526,20 +528,23 @@ function renderHistoryStats(entries) {
   const statsEl = $('history-stats');
   if (!statsEl) return;
 
-  const reviewed = entries.filter(entry => entry.review?.humanVerdict && entry.review.humanVerdict !== 'unreviewed').length;
-  const methodStats = computeMethodStats(entries);
-  const bestMethod = Object.entries(methodStats)
-    .filter(([, stat]) => stat.total > 0)
-    .sort(([, a], [, b]) => (b.correct / b.total) - (a.correct / a.total))[0];
-  const bestLabel = bestMethod
-    ? `${getMethodName(bestMethod[0])}: ${Math.round((bestMethod[1].correct / bestMethod[1].total) * 100)}%`
-    : 'Not enough tags';
+  const labeled = entries.filter(
+    e => e.review?.humanVerdict && e.review.humanVerdict !== 'unreviewed'
+  );
+  const perfResults = computeMethodPerformance(entries);
 
   statsEl.innerHTML = `
     <div class="history-stat-card"><div class="history-stat-label">Saved analyses</div><div class="history-stat-value">${entries.length}</div></div>
-    <div class="history-stat-card"><div class="history-stat-label">Human reviewed</div><div class="history-stat-value">${reviewed}</div></div>
-    <div class="history-stat-card"><div class="history-stat-label">Best tagged method</div><div class="history-stat-value">${escapeHtml(bestLabel)}</div></div>
+    <div class="history-stat-card"><div class="history-stat-label">Verdicts assigned</div><div class="history-stat-value">${labeled.length}</div></div>
+    <div class="history-stat-card"><div class="history-stat-label">Need ${Math.max(0, 5 - labeled.length)} more verdicts</div><div class="history-stat-value">${labeled.length >= 5 ? '✓ Panel ready' : `${labeled.length}/5`}</div></div>
   `;
+
+  const panelEl = $('history-perf-panel');
+  if (!panelEl) return;
+  panelEl.innerHTML = '';
+  if (perfResults.length > 0) {
+    panelEl.appendChild(renderMethodPerformancePanel(perfResults, labeled.length));
+  }
 }
 
 function computeMethodStats(entries) {

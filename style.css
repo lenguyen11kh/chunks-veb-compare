@@ -763,3 +763,51 @@ a:focus-visible {
   color: #fff;
   border-color: #bf080b;
 }
+
+/* Method performance panel */
+.method-perf-panel {
+  border: 1px solid #e5e5e5;
+  padding: 16px;
+  margin: 16px 0;
+  background: #fff;
+}
+
+.method-perf-title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: #71717a;
+  margin-bottom: 4px;
+}
+
+.method-perf-subtitle {
+  font-size: 12px;
+  color: #71717a;
+  margin-bottom: 12px;
+}
+
+.method-perf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.method-perf-table th,
+.method-perf-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.perf-best-badge {
+  background: #bf080b;
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 8px;
+  font-family: 'Oswald', sans-serif;
+  letter-spacing: 0.06em;
+}
+
+.corr-high { color: #16a34a; font-weight: 600; }
+.corr-medium { color: #d97706; }
+.corr-low { color: #71717a; }

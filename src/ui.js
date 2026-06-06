@@ -306,3 +306,41 @@ export function renderVerdictStrip(currentVerdict, onChange) {
   strip.appendChild(buttons);
   return strip;
 }
+
+export function renderMethodPerformancePanel(results, labeledCount) {
+  const panel = document.createElement('div');
+  panel.className = 'method-perf-panel';
+
+  const title = document.createElement('div');
+  title.className = 'method-perf-title';
+  title.textContent = 'METHOD PERFORMANCE';
+  panel.appendChild(title);
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'method-perf-subtitle';
+  subtitle.textContent = `Spearman rank correlation vs your verdicts · ${labeledCount} labeled entries`;
+  panel.appendChild(subtitle);
+
+  const table = document.createElement('table');
+  table.className = 'method-perf-table';
+  table.innerHTML = '<thead><tr><th>Method</th><th>Correlation</th><th>Samples</th><th></th></tr></thead>';
+  const tbody = document.createElement('tbody');
+
+  for (let i = 0; i < results.length; i++) {
+    const { methodId, correlation, sampleSize } = results[i];
+    const corr = correlation.toFixed(2);
+    const badge = i === 0 ? '<span class="perf-best-badge">Best match</span>' : '';
+    const colorClass = correlation >= 0.7 ? 'corr-high' : correlation >= 0.4 ? 'corr-medium' : 'corr-low';
+    tbody.innerHTML += `
+      <tr>
+        <td><span class="method-badge">${methodId.toUpperCase()}</span></td>
+        <td class="${colorClass}">${corr}</td>
+        <td>${sampleSize}</td>
+        <td>${badge}</td>
+      </tr>
+    `;
+  }
+  table.appendChild(tbody);
+  panel.appendChild(table);
+  return panel;
+}
