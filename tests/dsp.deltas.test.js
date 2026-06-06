@@ -46,3 +46,22 @@ describe('extractLPCFrames', () => {
     expect(hasNonZero).toBe(true);
   });
 });
+
+import { extractVoicedUnvoiced } from '../src/dsp.js';
+
+describe('extractVoicedUnvoiced', () => {
+  it('classifies a sine wave as voiced (all 1s)', () => {
+    const samples = sineWave(220, 16000, 0.3);
+    const vuv = extractVoicedUnvoiced(samples, 16000);
+    expect(vuv.length).toBeGreaterThan(0);
+    const allVoiced = Array.from(vuv).every(v => v === 1.0);
+    expect(allVoiced).toBe(true);
+  });
+
+  it('classifies silence as unvoiced (all 0s)', () => {
+    const samples = new Float32Array(16000); // pure silence
+    const vuv = extractVoicedUnvoiced(samples, 16000);
+    const allUnvoiced = Array.from(vuv).every(v => v === 0.0);
+    expect(allUnvoiced).toBe(true);
+  });
+});

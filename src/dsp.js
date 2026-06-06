@@ -551,6 +551,39 @@ export function extractLPCFrames(samples, sampleRate, opts = {}) {
   return result;
 }
 
+/**
+ * Extract binary voiced/unvoiced frame sequence.
+ * A frame is voiced if energy > threshold AND zero-crossing rate < zcrThreshold.
+ * @param {Float32Array} samples
+ * @param {number} sampleRate
+ * @param {Object} opts
+ * @returns {Float64Array} 1.0 = voiced, 0.0 = unvoiced, one value per frame
+ */
+export function extractVoicedUnvoiced(samples, sampleRate, opts = {}) {
+  const {
+    frameSizeMs = 25,
+    hopSizeMs = 10,
+    energyThreshold = 0.001,
+    zcrThreshold = 0.15,
+  } = opts;
+  const frameSize = Math.round((frameSizeMs / 1000) * sampleRate);
+  const hopSize = Math.round((hopSizeMs / 1000) * sampleRate);
+  const result = [];
+  for (let start = 0; start + frameSize <= samples.length; start += hopSize) {
+    let energy = 0;
+    let zcr = 0;
+    for (let i = 0; i < frameSize; i++) {
+      const s = samples[start + i];
+      energy += s * s;
+      if (i > 0 && Math.sign(s) !== Math.sign(samples[start + i - 1])) zcr++;
+    }
+    energy /= frameSize;
+    zcr /= (frameSize - 1);
+    result.push(energy > energyThreshold && zcr < zcrThreshold ? 1.0 : 0.0);
+  }
+  return new Float64Array(result);
+}
+
 // ---------------------------------------------------------------------------
 // Pitch (F0) tracking via autocorrelation
 // ---------------------------------------------------------------------------
