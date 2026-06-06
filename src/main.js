@@ -39,7 +39,7 @@ const state = {
   audioB: null,
   processedA: null,
   processedB: null,
-  enabledMethods: new Set(METHOD_DEFS.map(m => m.id)),
+  enabledMethods: new Set(METHOD_DEFS.filter(m => m.defaultOn).map(m => m.id)),
   preprocessing: { normalize: true, trimSilence: true },
   analysisGoal: 'same-speaker',
   lastResults: null,
@@ -128,7 +128,7 @@ function enableAllMethods() {
 }
 
 function resetMethodDefaults() {
-  state.enabledMethods = new Set(METHOD_DEFS.map(method => method.id));
+  state.enabledMethods = new Set(METHOD_DEFS.filter(m => m.defaultOn).map(m => m.id));
   renderMethods();
 }
 
