@@ -54,11 +54,8 @@ function init() {
   setupAnalysisGoal();
 
   // Method cards
-  renderMethodCards($('methods-container'), state.enabledMethods, (id, enabled) => {
-    if (enabled) state.enabledMethods.add(id);
-    else state.enabledMethods.delete(id);
-    updateCompareButton();
-  });
+  renderMethods();
+  $('btn-enable-all-methods')?.addEventListener('click', enableAllMethods);
 
   // Audio slots
   setupSlot('a');
@@ -94,6 +91,31 @@ function updateAnalysisGoalDescription() {
   const descEl = $('analysis-goal-description');
   if (!descEl) return;
   descEl.textContent = getAnalysisGoalConfig(state.analysisGoal).description;
+}
+
+// ---------------------------------------------------------------------------
+// Method setup
+// ---------------------------------------------------------------------------
+function renderMethods() {
+  renderMethodCards($('methods-container'), state.enabledMethods, handleMethodToggle);
+}
+
+function handleMethodToggle(id, enabled) {
+  if (enabled) state.enabledMethods.add(id);
+  else state.enabledMethods.delete(id);
+  updateCompareButton();
+}
+
+function enableAllMethods() {
+  state.enabledMethods = new Set(METHOD_DEFS.map(method => method.id));
+  renderMethods();
+  updateCompareButton();
+  showToast('All analysis methods enabled', 'success');
+}
+
+function resetMethodDefaults() {
+  state.enabledMethods = new Set(METHOD_DEFS.filter(method => method.defaultOn).map(method => method.id));
+  renderMethods();
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +191,21 @@ function setupSlot(slot) {
 // Restart + compare
 // ---------------------------------------------------------------------------
 function restartAnalysis() {
+  resetAudioSlots();
+  resetPreprocessingDefaults();
+  resetAnalysisGoalDefault();
+  resetMethodDefaults();
+
+  state.lastResults = null;
+  state.processedA = null;
+  state.processedB = null;
+  clearPreviousResults();
+  updateCompareButton();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Analyzer restarted — fresh page state', 'success');
+}
+
+function resetAudioSlots() {
   for (const slot of ['a', 'b']) {
     const recorder = state.recorders[slot];
     recorder.cancel?.();
@@ -191,14 +228,21 @@ function restartAnalysis() {
     }
     clearCanvas(waveCanvas);
   }
+}
 
-  state.lastResults = null;
-  state.processedA = null;
-  state.processedB = null;
-  clearPreviousResults();
-  updateCompareButton();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  showToast('Analyzer restarted', 'success');
+function resetPreprocessingDefaults() {
+  state.preprocessing = { normalize: false, trimSilence: false };
+  const normalizeEl = $('toggle-normalize');
+  const trimEl = $('toggle-trim');
+  if (normalizeEl) normalizeEl.checked = false;
+  if (trimEl) trimEl.checked = false;
+}
+
+function resetAnalysisGoalDefault() {
+  state.analysisGoal = 'same-speaker';
+  const goalEl = $('analysis-goal');
+  if (goalEl) goalEl.value = state.analysisGoal;
+  updateAnalysisGoalDescription();
 }
 
 function clearPreviousResults() {
