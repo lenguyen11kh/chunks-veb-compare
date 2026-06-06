@@ -326,6 +326,44 @@ export function extractMFCCs(samples, sampleRate, opts = {}) {
   return mfccs;
 }
 
+/**
+ * Extract 39-coefficient MFCC frames: static(13) + delta(13) + delta-delta(13).
+ * @param {Float32Array} samples - mono audio
+ * @param {number} sampleRate
+ * @param {Object} opts - passed to extractMFCCs
+ * @returns {Array<Float64Array>} frames × 39
+ */
+export function extractMFCCWithDeltas(samples, sampleRate, opts = {}) {
+  const numCoeffs = opts.numCoeffs ?? 13;
+  const staticFrames = extractMFCCs(samples, sampleRate, { ...opts, numCoeffs });
+  const N = staticFrames.length;
+
+  function computeDelta(frames) {
+    return frames.map((_, t) => {
+      const d = new Float64Array(numCoeffs);
+      for (let k = 0; k < numCoeffs; k++) {
+        const t1 = Math.max(0, t - 1);
+        const t2 = Math.max(0, t - 2);
+        const tp1 = Math.min(N - 1, t + 1);
+        const tp2 = Math.min(N - 1, t + 2);
+        d[k] = (frames[tp1][k] - frames[t1][k] + 2 * (frames[tp2][k] - frames[t2][k])) / 10;
+      }
+      return d;
+    });
+  }
+
+  const d1 = computeDelta(staticFrames);
+  const d2 = computeDelta(d1);
+
+  return staticFrames.map((s, t) => {
+    const out = new Float64Array(39);
+    out.set(s, 0);
+    out.set(d1[t], 13);
+    out.set(d2[t], 26);
+    return out;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Mel spectrogram (no DCT)
 // ---------------------------------------------------------------------------
