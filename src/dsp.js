@@ -584,6 +584,33 @@ export function extractVoicedUnvoiced(samples, sampleRate, opts = {}) {
   return new Float64Array(result);
 }
 
+/**
+ * Extract spectral flux: L2 norm of frame-to-frame magnitude spectrum difference.
+ * First frame is always 0.
+ * @param {Float32Array} samples
+ * @param {number} sampleRate
+ * @param {Object} opts
+ * @returns {Float64Array} one flux value per frame
+ */
+export function extractSpectralFlux(samples, sampleRate, opts = {}) {
+  const { frameSizeMs = 25, hopSizeMs = 10 } = opts;
+  const frameSize = nextPow2(Math.round((frameSizeMs / 1000) * sampleRate));
+  const hopSize = Math.round((hopSizeMs / 1000) * sampleRate);
+  const frameList = frames(samples, frameSize, hopSize);
+  const fluxes = [0];
+  for (let t = 1; t < frameList.length; t++) {
+    const magCurr = magnitudeSpectrum(frameList[t]);
+    const magPrev = magnitudeSpectrum(frameList[t - 1]);
+    let flux = 0;
+    for (let k = 0; k < magCurr.length; k++) {
+      const diff = magCurr[k] - magPrev[k];
+      flux += diff * diff;
+    }
+    fluxes.push(Math.sqrt(flux));
+  }
+  return new Float64Array(fluxes);
+}
+
 // ---------------------------------------------------------------------------
 // Pitch (F0) tracking via autocorrelation
 // ---------------------------------------------------------------------------

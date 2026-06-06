@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { extractMFCCWithDeltas } from '../src/dsp.js';
+import {
+  extractMFCCWithDeltas,
+  extractLPCFrames,
+  extractVoicedUnvoiced,
+  extractSpectralFlux,
+} from '../src/dsp.js';
 
 function sineWave(freq, sampleRate, durationSec) {
   const n = Math.floor(sampleRate * durationSec);
@@ -28,8 +33,6 @@ describe('extractMFCCWithDeltas', () => {
   });
 });
 
-import { extractLPCFrames } from '../src/dsp.js';
-
 describe('extractLPCFrames', () => {
   it('returns frames each with lpcOrder coefficients', () => {
     const samples = sineWave(440, 16000, 0.5);
@@ -47,8 +50,6 @@ describe('extractLPCFrames', () => {
   });
 });
 
-import { extractVoicedUnvoiced } from '../src/dsp.js';
-
 describe('extractVoicedUnvoiced', () => {
   it('classifies a sine wave as voiced (all 1s)', () => {
     const samples = sineWave(220, 16000, 0.3);
@@ -63,5 +64,26 @@ describe('extractVoicedUnvoiced', () => {
     const vuv = extractVoicedUnvoiced(samples, 16000);
     const allUnvoiced = Array.from(vuv).every(v => v === 0.0);
     expect(allUnvoiced).toBe(true);
+  });
+});
+
+describe('extractSpectralFlux', () => {
+  it('returns one value per frame for a sine wave', () => {
+    const samples = sineWave(440, 16000, 0.5);
+    const flux = extractSpectralFlux(samples, 16000);
+    expect(flux.length).toBeGreaterThan(0);
+  });
+
+  it('first frame is always 0 (no previous frame)', () => {
+    const samples = sineWave(440, 16000, 0.3);
+    const flux = extractSpectralFlux(samples, 16000);
+    expect(flux[0]).toBe(0);
+  });
+
+  it('silence produces near-zero flux', () => {
+    const samples = new Float32Array(16000);
+    const flux = extractSpectralFlux(samples, 16000);
+    const maxFlux = Math.max(...flux);
+    expect(maxFlux).toBeLessThan(1e-6);
   });
 });
