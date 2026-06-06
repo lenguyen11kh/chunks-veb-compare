@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Similarity Analyzer</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <header class="app-header">
+    <div class="app-header-inner">
+      <h1 class="app-title">Audio Similarity Analyzer</h1>
+      <p class="app-subtitle">Compare two audio clips using acoustic feature analysis — purely signal-based, no speech recognition.</p>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- ── Input slots ──────────────────────────────────────── -->
+    <section class="section">
+      <h2 class="section-title">Input audio</h2>
+      <div class="slots-grid">
+
+        <!-- Slot A -->
+        <div class="slot" id="slot-a">
+          <div class="slot-header">
+            <span class="slot-badge slot-badge--a">A</span>
+            <span class="slot-label">Audio A</span>
+          </div>
+          <div class="slot-controls">
+            <button class="btn btn-secondary" id="btn-upload-a">Upload file</button>
+            <input type="file" id="upload-a" accept=".wav,.mp3,.m4a,.ogg,audio/*" style="display:none" />
+            <button class="btn btn-outline btn-record" id="btn-record-a">● Record</button>
+          </div>
+          <div class="slot-wave-area">
+            <canvas id="wave-preview-a" class="wave-canvas" width="360" height="72"></canvas>
+          </div>
+          <div class="slot-info">No audio loaded</div>
+        </div>
+
+        <!-- Slot B -->
+        <div class="slot" id="slot-b">
+          <div class="slot-header">
+            <span class="slot-badge slot-badge--b">B</span>
+            <span class="slot-label">Audio B</span>
+          </div>
+          <div class="slot-controls">
+            <button class="btn btn-secondary" id="btn-upload-b">Upload file</button>
+            <input type="file" id="upload-b" accept=".wav,.mp3,.m4a,.ogg,audio/*" style="display:none" />
+            <button class="btn btn-outline btn-record" id="btn-record-b">● Record</button>
+          </div>
+          <div class="slot-wave-area">
+            <canvas id="wave-preview-b" class="wave-canvas" width="360" height="72"></canvas>
+          </div>
+          <div class="slot-info">No audio loaded</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Preprocessing ────────────────────────────────────── -->
+    <section class="section">
+      <h2 class="section-title">Preprocessing</h2>
+      <div class="preprocessing-row">
+        <label class="preproc-item">
+          <span class="preproc-label">
+            <span class="preproc-name">Normalize loudness</span>
+            <span class="preproc-desc">Scale both signals to the same RMS level before analysis</span>
+          </span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="toggle-normalize" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </span>
+        </label>
+        <label class="preproc-item">
+          <span class="preproc-label">
+            <span class="preproc-name">Trim silence</span>
+            <span class="preproc-desc">Remove leading/trailing silent frames before analysis</span>
+          </span>
+          <span class="toggle-switch">
+            <input type="checkbox" id="toggle-trim" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <!-- ── Analysis methods ─────────────────────────────────── -->
+    <section class="section">
+      <h2 class="section-title">Analysis methods</h2>
+      <p class="section-hint">Each enabled method produces an independent similarity score. Scores are relative within a method — do not compare absolute values across methods.</p>
+      <div id="methods-container" class="methods-list"></div>
+    </section>
+
+    <!-- ── Compare button ───────────────────────────────────── -->
+    <div class="compare-bar">
+      <button class="btn btn-primary btn-compare" id="btn-compare" disabled>Compare</button>
+    </div>
+
+    <!-- ── Results ──────────────────────────────────────────── -->
+    <section class="section" id="results-section" style="display:none">
+      <div class="results-header">
+        <h2 class="section-title">Results</h2>
+        <button class="btn btn-outline btn-sm" id="btn-export">Export JSON</button>
+      </div>
+
+      <div class="disclaimer">
+        Scores reflect acoustic feature similarity only — they are heuristic estimates, not ground truth.
+      </div>
+
+      <!-- Score cards -->
+      <div id="score-cards" class="score-cards-grid"></div>
+
+      <!-- Multi-method comparison table + radar -->
+      <div id="multi-comparison" style="display:none"></div>
+
+      <!-- Visualizations -->
+      <div id="viz-section" style="display:none">
+        <h3 class="viz-title">Waveforms</h3>
+        <canvas id="canvas-waveforms" class="viz-canvas viz-canvas--wide" width="900" height="160"></canvas>
+
+        <h3 class="viz-title">Mel spectrograms</h3>
+        <div class="spec-grid">
+          <div>
+            <div class="spec-label">Audio A</div>
+            <canvas id="canvas-spec-a" class="viz-canvas" width="440" height="140"></canvas>
+          </div>
+          <div>
+            <div class="spec-label">Audio B</div>
+            <canvas id="canvas-spec-b" class="viz-canvas" width="440" height="140"></canvas>
+          </div>
+        </div>
+
+        <div id="dtw-section" style="display:none">
+          <h3 class="viz-title">DTW alignment path <span class="viz-hint">(MFCC)</span></h3>
+          <canvas id="canvas-dtw" class="viz-canvas viz-canvas--square" width="400" height="400"></canvas>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>All processing runs locally in your browser — no audio is sent to any server.</p>
+  </footer>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
