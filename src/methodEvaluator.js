@@ -41,7 +41,14 @@ export function computeMethodPerformance(entries) {
 function rankArray(arr) {
   const indexed = arr.map((v, i) => [v, i]).sort(([a], [b]) => a - b);
   const ranks = new Array(arr.length);
-  for (let i = 0; i < indexed.length; i++) ranks[indexed[i][1]] = i + 1;
+  let i = 0;
+  while (i < indexed.length) {
+    let j = i;
+    while (j < indexed.length && indexed[j][0] === indexed[i][0]) j++;
+    const avgRank = (i + j + 1) / 2;
+    for (let k = i; k < j; k++) ranks[indexed[k][1]] = avgRank;
+    i = j;
+  }
   return ranks;
 }
 

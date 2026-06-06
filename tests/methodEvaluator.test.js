@@ -50,7 +50,7 @@ describe('computeMethodPerformance', () => {
     const results = computeMethodPerformance(entries);
     expect(results.length).toBe(1);
     expect(results[0].methodId).toBe('mfcc');
-    expect(results[0].correlation).toBeCloseTo(0.9, 1);
+    expect(results[0].correlation).toBeGreaterThan(0.95);
     expect(results[0].sampleSize).toBe(5);
   });
 
