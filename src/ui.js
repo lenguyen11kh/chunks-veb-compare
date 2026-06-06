@@ -164,6 +164,14 @@ export function renderRadarChart(canvas, entries) {
  * @param {(id: string, enabled: boolean) => void} onChange
  */
 export function renderMethodCards(container, enabledIds, onChange) {
+  const methodTooltips = {
+    mfcc: 'So sánh âm sắc và bao phổ theo thời gian, sau đó dùng DTW để căn chỉnh hai clip dù một clip nói nhanh/chậm hơn clip còn lại.',
+    formant: 'Theo dõi F1/F2 — cộng hưởng nguyên âm. Hữu ích khi kiểm tra chất lượng nguyên âm và hình dạng phát âm của các đoạn hữu thanh.',
+    melspec: 'So sánh mẫu năng lượng trên các dải tần Mel. Phù hợp để xem texture/phổ tổng thể, nhưng ít linh hoạt về thời gian hơn DTW.',
+    pitch: 'So sánh đường cao độ F0 theo thời gian. Hữu ích cho ngữ điệu, giai điệu hoặc thanh điệu; không đại diện toàn bộ phát âm.',
+    rawcorr: 'So sánh trực tiếp dạng sóng thô làm baseline. Rất nhanh nhưng nhạy với timing, speaker, pha và điều kiện ghi âm.',
+  };
+
   container.innerHTML = '';
   for (const method of METHOD_DEFS) {
     const isEnabled = enabledIds.has(method.id);
@@ -176,7 +184,7 @@ export function renderMethodCards(container, enabledIds, onChange) {
       <div class="method-card-info">
         <span class="method-card-id">${method.id.toUpperCase()}</span>
         <div>
-          <div class="method-card-name">${method.name}</div>
+          <div class="method-card-name">${method.name} <span class="tooltip-dot" tabindex="0" aria-label="Giải thích ${method.name}" data-tooltip="${methodTooltips[method.id] || method.subtitle}">?</span></div>
           <div class="method-card-desc">${method.subtitle}</div>
         </div>
       </div>

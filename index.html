@@ -3,24 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Audio Similarity Analyzer</title>
+  <title>CHUNKS Audio Similarity Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div id="toast-container"></div>
 
-  <header class="app-header">
+  <header class="app-header" data-od-id="brand-header">
     <div class="app-header-inner">
-      <div class="header-row">
-        <div>
+      <div class="brand-lockup">
+        <a class="chunks-logo" href="./" aria-label="CHUNKS home">
+          <img src="logo.png" alt="CHUNKS" />
+        </a>
+        <div class="brand-copy">
+          <div class="app-eyebrow">Local signal intelligence</div>
           <h1 class="app-title">Audio Similarity Analyzer</h1>
-          <p class="app-subtitle">Compare two audio clips using acoustic feature analysis — purely signal-based, no speech recognition.</p>
+          <p class="app-subtitle">Compare clips by acoustic features — waveform, spectrum, MFCC and DTW — entirely inside your browser.</p>
         </div>
-        <nav class="header-nav">
+      </div>
+      <div class="header-actions">
+        <nav class="header-nav" aria-label="Primary pages">
           <button class="nav-tab nav-tab--active" id="tab-analyzer" data-page="analyzer">Analyzer</button>
           <button class="nav-tab" id="tab-guide" data-page="guide">How it works</button>
+          <button class="nav-tab" id="tab-settings" data-page="settings">LLM Settings</button>
         </nav>
+        <div class="header-pills" aria-label="App guarantees">
+          <span class="status-pill status-pill--red">Local only</span>
+          <span class="status-pill">No upload</span>
+          <span class="status-pill">Export JSON</span>
+        </div>
       </div>
     </div>
   </header>
@@ -228,11 +243,61 @@
     </div>
   </div>
 
+  <!-- ── LLM Settings page ─────────────────────────────────── -->
+  <div id="page-settings" class="guide-page settings-page" style="display:none">
+    <div class="guide-inner">
+      <section class="guide-section">
+        <h2 class="guide-h2">LLM Settings</h2>
+        <p>Cấu hình 9Router hoặc endpoint OpenAI-compatible để AI đọc JSON kết quả và giải thích dữ liệu ở mức cơ bản. API key chỉ lưu trong trình duyệt của bạn bằng localStorage, không commit vào repo.</p>
+
+        <div class="settings-grid">
+          <label class="settings-field">
+            <span>API endpoint</span>
+            <input id="llm-endpoint" type="url" placeholder="http://localhost:20128" autocomplete="off" />
+          </label>
+          <label class="settings-field">
+            <span>API key</span>
+            <input id="llm-api-key" type="password" placeholder="sk-... hoặc để trống nếu 9Router không bật auth" autocomplete="off" />
+          </label>
+          <label class="settings-field">
+            <span>Models</span>
+            <select id="llm-model-select">
+              <option value="">Load models từ endpoint…</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span>Model ID</span>
+            <input id="llm-model-custom" type="text" placeholder="openai/gpt-5 hoặc combo id" autocomplete="off" />
+          </label>
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn btn-secondary" id="btn-load-models">Load models</button>
+          <button class="btn btn-outline" id="btn-test-llm-model">Test model</button>
+          <button class="btn btn-primary" id="btn-save-llm-settings">Save settings</button>
+        </div>
+        <pre id="llm-settings-status" class="llm-status" aria-live="polite">Chưa cấu hình.</pre>
+      </section>
+    </div>
+  </div>
+
   <main class="app-main" id="page-analyzer">
 
+    <section class="hero-panel" data-od-id="stitch-hero">
+      <p class="hero-kicker">100% on-device acoustic fingerprinting</p>
+      <h2 class="hero-title">Audio Similarity <span>Analyzer</span></h2>
+      <p class="hero-copy">Compare clips by waveform, spectrum, MFCC and DTW — entirely inside your browser.</p>
+    </section>
+
     <!-- ── Input slots ──────────────────────────────────────── -->
-    <section class="section">
-      <h2 class="section-title">Input audio</h2>
+    <section class="section section--input" data-od-id="input-audio">
+      <div class="section-heading">
+        <div>
+          <span class="section-kicker">Step 01</span>
+          <h2 class="section-title">Input audio</h2>
+        </div>
+        <p class="section-caption">Load or record two clips to generate waveform previews before analysis.</p>
+      </div>
       <div class="slots-grid">
 
         <!-- Slot A -->
@@ -273,12 +338,18 @@
     </section>
 
     <!-- ── Preprocessing ────────────────────────────────────── -->
-    <section class="section">
-      <h2 class="section-title">Preprocessing</h2>
+    <section class="section" data-od-id="preprocessing-controls">
+      <div class="section-heading">
+        <div>
+          <span class="section-kicker">Step 02</span>
+          <h2 class="section-title">Preprocessing</h2>
+        </div>
+        <p class="section-caption">Optional cleanup before the scoring methods run.</p>
+      </div>
       <div class="preprocessing-row">
         <label class="preproc-item">
           <span class="preproc-label">
-            <span class="preproc-name">Normalize loudness</span>
+            <span class="preproc-name">Normalize loudness <span class="tooltip-dot" tabindex="0" aria-label="Giải thích Normalize loudness" data-tooltip="Chuẩn hóa âm lượng giúp đưa hai clip về mức RMS tương đương trước khi phân tích. Nhờ vậy điểm số tập trung vào âm sắc, phổ và hình dạng tín hiệu thay vì clip nào to hơn.">?</span></span>
             <span class="preproc-desc">Scale both signals to the same RMS level before analysis</span>
           </span>
           <span class="toggle-switch">
@@ -288,7 +359,7 @@
         </label>
         <label class="preproc-item">
           <span class="preproc-label">
-            <span class="preproc-name">Trim silence</span>
+            <span class="preproc-name">Trim silence <span class="tooltip-dot" tabindex="0" aria-label="Giải thích Trim silence" data-tooltip="Cắt khoảng lặng ở đầu và cuối clip trước khi so sánh. Việc này giúp các phương pháp như DTW căn chỉnh phần âm thanh thực sự thay vì bị lệch bởi đoạn im lặng.">?</span></span>
             <span class="preproc-desc">Remove leading/trailing silent frames before analysis</span>
           </span>
           <span class="toggle-switch">
@@ -300,8 +371,13 @@
     </section>
 
     <!-- ── Analysis methods ─────────────────────────────────── -->
-    <section class="section">
-      <h2 class="section-title">Analysis methods</h2>
+    <section class="section" data-od-id="analysis-methods">
+      <div class="section-heading section-heading--stacked">
+        <div>
+          <span class="section-kicker">Step 03</span>
+          <h2 class="section-title">Analysis methods</h2>
+        </div>
+      </div>
       <p class="section-hint">Each enabled method produces an independent similarity score. Scores are relative within a method — do not compare absolute values across methods.</p>
       <div id="methods-container" class="methods-list"></div>
     </section>
@@ -312,14 +388,22 @@
     </div>
 
     <!-- ── Results ──────────────────────────────────────────── -->
-    <section class="section" id="results-section" style="display:none">
+    <section class="section section--results" id="results-section" data-od-id="results-dashboard" style="display:none">
       <div class="results-header">
         <h2 class="section-title">Results</h2>
-        <button class="btn btn-outline btn-sm" id="btn-export">Export JSON</button>
+        <div class="results-actions">
+          <button class="btn btn-outline btn-sm" id="btn-ai-analyze">AI analyze JSON</button>
+          <button class="btn btn-outline btn-sm" id="btn-export">Export JSON</button>
+        </div>
       </div>
 
       <div class="disclaimer">
         Scores reflect acoustic feature similarity only — they are heuristic estimates, not ground truth.
+      </div>
+
+      <div id="ai-analysis-panel" class="ai-analysis-panel" style="display:none">
+        <h3>AI explanation</h3>
+        <pre id="ai-analysis-output">Chưa có phân tích AI.</pre>
       </div>
 
       <!-- Score cards -->
@@ -354,8 +438,8 @@
 
   </main>
 
-  <footer class="app-footer">
-    <p>All processing runs locally in your browser — no audio is sent to any server.</p>
+  <footer class="app-footer" data-od-id="privacy-footer">
+    <p><strong>CHUNKS</strong> · All processing runs locally in your browser — no audio is sent to any server.</p>
   </footer>
 
   <script type="module" src="src/main.js"></script>
@@ -368,6 +452,7 @@
         btn.classList.add('nav-tab--active');
         document.getElementById('page-analyzer').style.display = page === 'analyzer' ? '' : 'none';
         document.getElementById('page-guide').style.display = page === 'guide' ? '' : 'none';
+        document.getElementById('page-settings').style.display = page === 'settings' ? '' : 'none';
       });
     });
   </script>

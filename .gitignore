@@ -1,0 +1,15 @@
+# Local dev server artifacts
+server.log
+server.err.log
+server.pid
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Secrets / local env
+.env
+.env.*
+!.env.example
