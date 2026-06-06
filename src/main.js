@@ -21,6 +21,15 @@ import {
   drawMelSpectrogram,
   drawDTWPath,
 } from './visualizations.js';
+import {
+  clearAnalysisHistory,
+  deleteAnalysisEntry,
+  getAnalysisEntry,
+  listAnalysisEntries,
+  patchAnalysisEntry,
+  saveAnalysisEntry,
+  updateAnalysisReview,
+} from './historyStore.js?v=2';
 
 // ---------------------------------------------------------------------------
 // App state
@@ -34,6 +43,9 @@ const state = {
   preprocessing: { normalize: false, trimSilence: false },
   analysisGoal: 'same-speaker',
   lastResults: null,
+  lastHistoryId: null,
+  selectedHistoryId: null,
+  historyObjectUrls: [],
   recorders: { a: new AudioRecorder(), b: new AudioRecorder() },
 };
 
@@ -70,6 +82,7 @@ function init() {
   $('btn-ai-analyze')?.addEventListener('click', handleAIAnalysis);
 
   setupLLMSettings();
+  setupHistoryPage();
   updateCompareButton();
 }
 
@@ -252,6 +265,7 @@ function clearPreviousResults() {
   const aiOutput = $('ai-analysis-output');
   if (resultsSection) resultsSection.style.display = 'none';
   if (aiPanel) aiPanel.style.display = 'none';
+  state.lastHistoryId = null;
   if (aiOutput) aiOutput.textContent = 'Chưa có phân tích AI.';
   ['score-cards', 'multi-comparison'].forEach(id => {
     const el = $(id);
@@ -293,6 +307,7 @@ async function runComparison() {
     state.lastResults = results;
 
     renderResults(results, procA, procB);
+    await saveCurrentAnalysisToHistory();
     $('results-section').style.display = 'block';
     $('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) {
@@ -377,6 +392,333 @@ function renderSpectrograms(samplesA, samplesB) {
     drawMelSpectrogram($('canvas-spec-a'), specA, { label: 'A' });
     drawMelSpectrogram($('canvas-spec-b'), specB, { label: 'B' });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Local History / Admin Review
+// ---------------------------------------------------------------------------
+function setupHistoryPage() {
+  $('tab-history')?.addEventListener('click', () => renderHistoryPage());
+  $('btn-refresh-history')?.addEventListener('click', () => renderHistoryPage(state.selectedHistoryId));
+  $('btn-clear-history')?.addEventListener('click', async () => {
+    if (!confirm('Clear all saved audio history and review tags from this browser?')) return;
+    try {
+      await clearAnalysisHistory();
+      revokeHistoryObjectUrls();
+      state.selectedHistoryId = null;
+      await renderHistoryPage();
+      showToast('History cleared', 'success');
+    } catch (err) {
+      showToast(`Clear history failed: ${err.message}`, 'error');
+    }
+  });
+}
+
+async function saveCurrentAnalysisToHistory() {
+  if (!state.lastResults || !state.audioA?.blob || !state.audioB?.blob) {
+    showToast('Analysis ran, but audio blobs were not available for History.', 'error');
+    return null;
+  }
+
+  const summary = buildAnalysisSummary();
+  const id = generateId();
+  const entry = {
+    id,
+    createdAt: summary.generatedAt,
+    updatedAt: summary.generatedAt,
+    summary,
+    audioA: state.audioA.blob,
+    audioB: state.audioB.blob,
+    audioMeta: {
+      a: buildAudioMeta(state.audioA),
+      b: buildAudioMeta(state.audioB),
+    },
+    review: createDefaultReview(summary),
+    aiExplanation: '',
+  };
+
+  try {
+    await saveAnalysisEntry(entry);
+    state.lastHistoryId = id;
+    showToast('Saved audio + analysis log to History', 'success');
+    if ($('page-history')?.style.display !== 'none') await renderHistoryPage(id);
+    return id;
+  } catch (err) {
+    showToast(`Save history failed: ${err.message}`, 'error');
+    console.error(err);
+    return null;
+  }
+}
+
+async function renderHistoryPage(selectedId = null) {
+  const listEl = $('history-list');
+  const detailEl = $('history-detail');
+  if (!listEl || !detailEl) return;
+
+  try {
+    const entries = await listAnalysisEntries();
+    renderHistoryStats(entries);
+
+    if (!entries.length) {
+      listEl.innerHTML = '<div class="empty-state">No saved analyses yet. Run Compare to save audio + logs here.</div>';
+      detailEl.className = 'history-detail empty-state';
+      detailEl.textContent = 'No history item selected.';
+      state.selectedHistoryId = null;
+      revokeHistoryObjectUrls();
+      return;
+    }
+
+    const activeId = selectedId || state.selectedHistoryId || entries[0].id;
+    state.selectedHistoryId = activeId;
+    listEl.innerHTML = entries.map(entry => renderHistoryListItem(entry, activeId)).join('');
+    listEl.querySelectorAll('[data-history-id]').forEach(btn => {
+      btn.addEventListener('click', () => renderHistoryPage(btn.dataset.historyId));
+    });
+
+    const activeEntry = await getAnalysisEntry(activeId) || entries[0];
+    await renderHistoryDetail(activeEntry);
+  } catch (err) {
+    listEl.innerHTML = `<div class="empty-state">History failed: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderHistoryStats(entries) {
+  const statsEl = $('history-stats');
+  if (!statsEl) return;
+
+  const reviewed = entries.filter(entry => entry.review?.humanVerdict && entry.review.humanVerdict !== 'unreviewed').length;
+  const methodStats = computeMethodStats(entries);
+  const bestMethod = Object.entries(methodStats)
+    .filter(([, stat]) => stat.total > 0)
+    .sort(([, a], [, b]) => (b.correct / b.total) - (a.correct / a.total))[0];
+  const bestLabel = bestMethod
+    ? `${getMethodName(bestMethod[0])}: ${Math.round((bestMethod[1].correct / bestMethod[1].total) * 100)}%`
+    : 'Not enough tags';
+
+  statsEl.innerHTML = `
+    <div class="history-stat-card"><div class="history-stat-label">Saved analyses</div><div class="history-stat-value">${entries.length}</div></div>
+    <div class="history-stat-card"><div class="history-stat-label">Human reviewed</div><div class="history-stat-value">${reviewed}</div></div>
+    <div class="history-stat-card"><div class="history-stat-label">Best tagged method</div><div class="history-stat-value">${escapeHtml(bestLabel)}</div></div>
+  `;
+}
+
+function computeMethodStats(entries) {
+  const stats = {};
+  for (const method of METHOD_DEFS) stats[method.id] = { correct: 0, wrong: 0, unsure: 0, total: 0 };
+  for (const entry of entries) {
+    const labels = entry.review?.methodLabels || {};
+    for (const [methodId, label] of Object.entries(labels)) {
+      if (!stats[methodId] || label === 'unreviewed') continue;
+      if (label in stats[methodId]) stats[methodId][label] += 1;
+      stats[methodId].total += 1;
+    }
+  }
+  return stats;
+}
+
+function renderHistoryListItem(entry, activeId) {
+  const summary = entry.summary || {};
+  const scores = (summary.methods || []).map(method => `
+    <span class="history-score-pill">${escapeHtml(method.id.toUpperCase())}: ${escapeHtml(String(method.score))}</span>
+  `).join('');
+  return `
+    <button class="history-item ${entry.id === activeId ? 'history-item--active' : ''}" type="button" data-history-id="${escapeHtml(entry.id)}">
+      <div class="history-item-title">${escapeHtml(formatHistoryDate(entry.createdAt))}</div>
+      <div class="history-item-meta">${escapeHtml(summary.analysisGoal?.label || 'Analysis')} · Avg ${escapeHtml(String(summary.aggregate?.averageScore ?? 'n/a'))}</div>
+      <div class="history-item-meta">A: ${escapeHtml(summary.audio?.a?.fileName || 'Audio A')}<br>B: ${escapeHtml(summary.audio?.b?.fileName || 'Audio B')}</div>
+      <div class="history-item-scores">${scores}</div>
+    </button>
+  `;
+}
+
+async function renderHistoryDetail(entry) {
+  const detailEl = $('history-detail');
+  if (!detailEl || !entry) return;
+
+  revokeHistoryObjectUrls();
+  const audioAUrl = entry.audioA ? URL.createObjectURL(entry.audioA) : '';
+  const audioBUrl = entry.audioB ? URL.createObjectURL(entry.audioB) : '';
+  state.historyObjectUrls = [audioAUrl, audioBUrl].filter(Boolean);
+
+  const summary = entry.summary || {};
+  const review = entry.review || createDefaultReview(summary);
+  const methods = summary.methods || [];
+  detailEl.className = 'history-detail';
+  detailEl.innerHTML = `
+    <div class="history-audio-grid">
+      ${renderHistoryAudioCard('Audio A', summary.audio?.a, entry.audioMeta?.a, audioAUrl)}
+      ${renderHistoryAudioCard('Audio B', summary.audio?.b, entry.audioMeta?.b, audioBUrl)}
+    </div>
+
+    <table class="history-score-table">
+      <thead><tr><th>Method</th><th>Score</th><th>Label</th><th>Technical</th></tr></thead>
+      <tbody>${methods.map(renderHistoryScoreRow).join('')}</tbody>
+    </table>
+
+    <div class="history-review">
+      <h4>Admin human review</h4>
+      <div class="history-review-grid">
+        <label class="settings-field">
+          <span>Human verdict</span>
+          <select id="history-human-verdict">
+            ${renderSelectOption('unreviewed', 'Unreviewed', review.humanVerdict)}
+            ${renderSelectOption('similar', 'Human: Similar', review.humanVerdict)}
+            ${renderSelectOption('different', 'Human: Different', review.humanVerdict)}
+            ${renderSelectOption('inconclusive', 'Human: Inconclusive', review.humanVerdict)}
+            ${renderSelectOption('bad-data', 'Bad data / cannot judge', review.humanVerdict)}
+          </select>
+        </label>
+        <label class="settings-field">
+          <span>Review notes</span>
+          <textarea id="history-review-notes" placeholder="Nghe lại audio và ghi chú vì sao method đúng/sai…">${escapeHtml(review.notes || '')}</textarea>
+        </label>
+      </div>
+      <div class="method-review-list">
+        ${methods.map(method => renderMethodReviewControl(method, review.methodLabels?.[method.id])).join('')}
+      </div>
+      <div class="history-actions">
+        <button class="btn btn-primary" id="btn-save-history-review" type="button">Save review tags</button>
+        <button class="btn btn-outline" id="btn-delete-history-entry" type="button">Delete this item</button>
+      </div>
+    </div>
+
+    ${entry.aiExplanation ? `<div class="history-log"><h4>Saved AI explanation</h4><pre>${escapeHtml(entry.aiExplanation)}</pre></div>` : ''}
+    <div class="history-log"><h4>Saved analysis JSON</h4><pre>${escapeHtml(JSON.stringify(summary, null, 2))}</pre></div>
+  `;
+
+  $('btn-save-history-review')?.addEventListener('click', () => saveHistoryReview(entry.id));
+  $('btn-delete-history-entry')?.addEventListener('click', () => deleteHistoryItem(entry.id));
+}
+
+function renderHistoryAudioCard(title, summaryMeta = {}, blobMeta = {}, audioUrl) {
+  return `
+    <div class="history-audio-card">
+      <h4>${escapeHtml(title)}</h4>
+      <div>${escapeHtml(summaryMeta.fileName || blobMeta.fileName || title)}</div>
+      <div class="history-item-meta">Duration: ${escapeHtml(String(summaryMeta.durationSeconds ?? 'n/a'))}s · Size: ${escapeHtml(formatBytes(blobMeta.fileSize))}</div>
+      ${audioUrl ? `<audio controls preload="metadata" src="${audioUrl}"></audio>` : '<div class="empty-state">Audio blob unavailable.</div>'}
+    </div>
+  `;
+}
+
+function renderHistoryScoreRow(method) {
+  return `
+    <tr>
+      <td><span class="method-badge">${escapeHtml(method.id.toUpperCase())}</span>${escapeHtml(method.name || '')}</td>
+      <td class="score-cell">${escapeHtml(String(method.score))}</td>
+      <td>${escapeHtml(method.label || '')}</td>
+      <td><pre>${escapeHtml(JSON.stringify(method.technical || {}, null, 2))}</pre></td>
+    </tr>
+  `;
+}
+
+function renderMethodReviewControl(method, value = 'unreviewed') {
+  return `
+    <div class="method-review-item">
+      <label>${escapeHtml(method.id.toUpperCase())} · ${escapeHtml(String(method.score))}
+        <select data-method-review="${escapeHtml(method.id)}">
+          ${renderSelectOption('unreviewed', 'Unreviewed', value)}
+          ${renderSelectOption('correct', 'Method was correct', value)}
+          ${renderSelectOption('wrong', 'Method was wrong', value)}
+          ${renderSelectOption('unsure', 'Unsure / partial', value)}
+        </select>
+      </label>
+    </div>
+  `;
+}
+
+function renderSelectOption(value, label, selectedValue) {
+  return `<option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+}
+
+async function saveHistoryReview(entryId) {
+  const methodLabels = {};
+  document.querySelectorAll('[data-method-review]').forEach(select => {
+    methodLabels[select.dataset.methodReview] = select.value;
+  });
+  const review = {
+    humanVerdict: $('history-human-verdict')?.value || 'unreviewed',
+    notes: $('history-review-notes')?.value || '',
+    methodLabels,
+    reviewedAt: new Date().toISOString(),
+  };
+
+  try {
+    await updateAnalysisReview(entryId, review);
+    showToast('Review tags saved', 'success');
+    await renderHistoryPage(entryId);
+  } catch (err) {
+    showToast(`Save review failed: ${err.message}`, 'error');
+  }
+}
+
+async function deleteHistoryItem(entryId) {
+  if (!confirm('Delete this saved analysis and its audio from this browser?')) return;
+  try {
+    await deleteAnalysisEntry(entryId);
+    state.selectedHistoryId = null;
+    showToast('History item deleted', 'success');
+    await renderHistoryPage();
+  } catch (err) {
+    showToast(`Delete failed: ${err.message}`, 'error');
+  }
+}
+
+function createDefaultReview(summary = {}) {
+  const methodLabels = {};
+  for (const method of summary.methods || []) methodLabels[method.id] = 'unreviewed';
+  return {
+    humanVerdict: 'unreviewed',
+    notes: '',
+    methodLabels,
+    reviewedAt: null,
+  };
+}
+
+function buildAudioMeta(audio) {
+  return {
+    fileName: audio?.fileName || 'Audio',
+    fileSize: audio?.fileSize || audio?.blob?.size || 0,
+    mimeType: audio?.mimeType || audio?.blob?.type || 'audio/*',
+    durationSeconds: round2(audio?.duration),
+  };
+}
+
+function revokeHistoryObjectUrls() {
+  for (const url of state.historyObjectUrls) URL.revokeObjectURL(url);
+  state.historyObjectUrls = [];
+}
+
+function generateId() {
+  return crypto.randomUUID?.() || `hist-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getMethodName(methodId) {
+  return METHOD_DEFS.find(method => method.id === methodId)?.name || methodId;
+}
+
+function formatHistoryDate(value) {
+  if (!value) return 'Unknown date';
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function formatBytes(bytes = 0) {
+  if (!bytes) return 'n/a';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MB`;
+}
+
+function escapeHtml(value = '') {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 // ---------------------------------------------------------------------------
@@ -531,6 +873,13 @@ ${JSON.stringify(summary, null, 2)}`,
       },
     ], 900);
     output.textContent = text;
+    if (state.lastHistoryId) {
+      try {
+        await patchAnalysisEntry(state.lastHistoryId, { aiExplanation: text });
+      } catch (historyErr) {
+        console.warn('Could not save AI explanation to history:', historyErr);
+      }
+    }
   } catch (err) {
     output.textContent = `AI analysis failed: ${err.message}`;
     showToast('AI analysis failed', 'error');
@@ -558,8 +907,8 @@ function buildAnalysisSummary() {
       reliabilityOrder: goalConfig.reliabilityOrder,
     },
     audio: {
-      a: { fileName: state.audioA?.fileName || 'Recording/Audio A', durationSeconds: round2(state.audioA?.duration) },
-      b: { fileName: state.audioB?.fileName || 'Recording/Audio B', durationSeconds: round2(state.audioB?.duration) },
+      a: buildAudioMeta(state.audioA),
+      b: buildAudioMeta(state.audioB),
     },
     preprocessing: state.preprocessing,
     methods,

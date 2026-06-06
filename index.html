@@ -29,6 +29,7 @@
         <nav class="header-nav" aria-label="Primary pages">
           <button class="nav-tab nav-tab--active" id="tab-analyzer" data-page="analyzer">Analyzer</button>
           <button class="nav-tab" id="tab-guide" data-page="guide">How it works</button>
+          <button class="nav-tab" id="tab-history" data-page="history">History</button>
           <button class="nav-tab" id="tab-settings" data-page="settings">LLM Settings</button>
         </nav>
         <div class="header-pills" aria-label="App guarantees">
@@ -281,6 +282,36 @@
     </div>
   </div>
 
+  <!-- ── History / Admin Review page ───────────────────────── -->
+  <div id="page-history" class="guide-page history-page" style="display:none">
+    <div class="guide-inner history-inner">
+      <section class="guide-section">
+        <div class="history-header">
+          <div>
+            <h2 class="guide-h2">History / Admin review</h2>
+            <p>Saved locally in this browser with IndexedDB. Audio never leaves your device. Use this page to replay clips, inspect logs, and tag which method matched your human judgement.</p>
+          </div>
+          <div class="history-actions">
+            <button class="btn btn-outline" id="btn-refresh-history" type="button">Refresh</button>
+            <button class="btn btn-outline" id="btn-clear-history" type="button">Clear history</button>
+          </div>
+        </div>
+        <div id="history-stats" class="history-stats" aria-live="polite"></div>
+      </section>
+
+      <section class="history-layout">
+        <div class="guide-section history-list-panel">
+          <h3 class="history-subtitle">Saved analyses</h3>
+          <div id="history-list" class="history-list" aria-live="polite"></div>
+        </div>
+        <div class="guide-section history-detail-panel">
+          <h3 class="history-subtitle">Review detail</h3>
+          <div id="history-detail" class="history-detail empty-state">No history item selected.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
   <main class="app-main" id="page-analyzer">
 
     <section class="hero-panel" data-od-id="stitch-hero">
@@ -465,15 +496,16 @@
 
   <script type="module" src="src/main.js"></script>
   <script>
-    // Tab switching — guide page vs analyzer page
+    // Tab switching — analyzer / guide / history / settings
     document.querySelectorAll('.nav-tab').forEach(btn => {
       btn.addEventListener('click', () => {
         const page = btn.dataset.page;
         document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('nav-tab--active'));
         btn.classList.add('nav-tab--active');
-        document.getElementById('page-analyzer').style.display = page === 'analyzer' ? '' : 'none';
-        document.getElementById('page-guide').style.display = page === 'guide' ? '' : 'none';
-        document.getElementById('page-settings').style.display = page === 'settings' ? '' : 'none';
+        ['analyzer', 'guide', 'history', 'settings'].forEach(pageId => {
+          const el = document.getElementById(`page-${pageId}`);
+          if (el) el.style.display = page === pageId ? '' : 'none';
+        });
       });
     });
   </script>

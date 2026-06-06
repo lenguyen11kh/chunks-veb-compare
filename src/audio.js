@@ -119,6 +119,9 @@ export class AudioRecorder {
           const arrayBuffer = await blob.arrayBuffer();
           const audio = await decodeAudioFile(arrayBuffer);
           audio.blob = blob;
+          audio.fileName = `Recording ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`;
+          audio.fileSize = blob.size;
+          audio.mimeType = blob.type || mimeType;
           resolve(audio);
         } catch (err) {
           reject(err);
@@ -163,6 +166,8 @@ export async function loadAudioFile(file) {
   const audio = await decodeAudioFile(arrayBuffer);
   audio.fileName = file.name;
   audio.fileSize = file.size;
+  audio.mimeType = file.type || 'audio/*';
+  audio.blob = file;
   return audio;
 }
 
