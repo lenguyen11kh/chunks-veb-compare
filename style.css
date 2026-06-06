@@ -434,7 +434,8 @@ a:focus-visible {
 .bar-fill.score-medium { background: var(--primary); }
 .bar-fill.score-low { background: var(--warning); }
 .bar-fill.score-poor { background: var(--danger); }
-.radar-wrapper { max-width: 410px; margin: 0 auto 24px; padding: 14px; border: 1px solid var(--line); border-radius: 0; background: #fff; }
+.radar-wrapper { width: min(100%, 680px); max-width: 680px; margin: 0 auto 24px; padding: 18px 28px; border: 1px solid var(--line); border-radius: 0; background: #fff; }
+.radar-wrapper canvas { width: 100% !important; max-width: 620px; margin: 0 auto; }
 
 /* Visualizations */
 .viz-title { margin: 24px 0 9px; color: var(--text); font-family: "Oswald", sans-serif; font-size: 14px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
