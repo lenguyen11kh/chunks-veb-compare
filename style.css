@@ -425,8 +425,8 @@ a:focus-visible {
 .btn-outline:hover { background: var(--primary-soft); border-color: var(--primary); }
 .btn-sm { min-height: 34px; padding: 7px 12px; font-size: 9px; }
 .btn-record--active { color: #fff !important; background: var(--primary) !important; border-color: var(--primary) !important; box-shadow: none !important; }
-.compare-bar { display: flex; justify-content: center; gap: 10px; position: sticky; bottom: 18px; z-index: 30; pointer-events: none; }
-.compare-bar .btn { pointer-events: auto; min-height: 56px; font-size: 12px; }
+.compare-bar { display: flex; justify-content: center; gap: 10px; position: sticky; bottom: 18px; z-index: 30; pointer-events: auto; }
+.compare-bar .btn { min-height: 56px; font-size: 12px; }
 .btn-restart { width: min(34%, 180px); background: #fff; }
 .btn-compare { width: min(66%, 460px); }
 
