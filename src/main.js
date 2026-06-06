@@ -41,7 +41,7 @@ const state = {
   processedB: null,
   enabledMethods: new Set(METHOD_DEFS.filter(m => m.defaultOn).map(m => m.id)),
   preprocessing: { normalize: true, trimSilence: true },
-  analysisGoal: 'same-speaker',
+  analysisGoal: 'sound-mirror',
   lastResults: null,
   lastHistoryId: null,
   selectedHistoryId: null,
@@ -256,7 +256,7 @@ function resetPreprocessingDefaults() {
 }
 
 function resetAnalysisGoalDefault() {
-  state.analysisGoal = 'same-speaker';
+  state.analysisGoal = 'sound-mirror';
   const goalEl = $('analysis-goal');
   if (goalEl) goalEl.value = state.analysisGoal;
   updateAnalysisGoalDescription();
@@ -946,6 +946,13 @@ function buildAnalysisSummary() {
 
 function getAnalysisGoalConfig(goalId) {
   const goals = {
+    'sound-mirror': {
+      label: 'Sound mirror (phonetic similarity)',
+      question: 'Hai audio có giống nhau về chuỗi âm thanh phonetic — bất kể ngôn ngữ, giọng hay nghĩa không?',
+      description: 'AI sẽ ưu tiên MFCC-39 + DTW, LPC, nhịp voiced/unvoiced và spectral flux để đánh giá độ giống nhau về hình dạng âm phonetic, không phân biệt ngôn ngữ hay người nói.',
+      interpretation: 'Tập trung vào hình dạng âm vị học: cấu hình vocal tract, chuyển tiếp phụ âm, nhịp âm tiết. "I\'ll go there" và "úm um ùm" có thể có điểm cao nếu chuỗi âm phonetic trùng khớp.',
+      reliabilityOrder: ['mfcc', 'lpc', 'vuv', 'sflux', 'melspec'],
+    },
     'same-speaker': {
       label: 'Voice similarity / possible same speaker',
       question: 'Hai audio có đủ giống nhau về giọng/âm sắc để nghi là cùng giọng hoặc rất giống giọng không?',

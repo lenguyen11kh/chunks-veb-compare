@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CHUNKS Audio Similarity Analyzer</title>
+  <title>CHUNKS Sound Mirror</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -21,7 +21,7 @@
         </a>
         <div class="brand-copy">
           <div class="app-eyebrow">Local signal intelligence</div>
-          <h1 class="app-title">Audio Similarity Analyzer</h1>
+          <h1 class="app-title">SOUND MIRROR</h1>
           <p class="app-subtitle">Compare clips by acoustic features — waveform, spectrum, MFCC and DTW — entirely inside your browser.</p>
         </div>
       </div>
@@ -315,8 +315,7 @@
   <main class="app-main" id="page-analyzer">
 
     <section class="hero-panel" data-od-id="stitch-hero">
-      <p class="hero-kicker">100% on-device acoustic fingerprinting</p>
-      <h2 class="hero-title">Audio Similarity <span>Analyzer</span></h2>
+      <h2 class="hero-title">SOUND <span>MIRROR</span></h2>
       <p class="hero-copy">Compare clips by waveform, spectrum, MFCC and DTW — entirely inside your browser.</p>
     </section>
 
@@ -335,7 +334,7 @@
         <div class="slot" id="slot-a">
           <div class="slot-header">
             <span class="slot-badge slot-badge--a">A</span>
-            <span class="slot-label">Audio A</span>
+            <span class="slot-label">Input A</span>
           </div>
           <div class="slot-controls">
             <button class="btn btn-secondary" id="btn-upload-a">Upload file</button>
@@ -346,13 +345,14 @@
             <canvas id="wave-preview-a" class="wave-canvas" width="360" height="72"></canvas>
           </div>
           <div class="slot-info">No audio loaded</div>
+          <div class="slot-playback"></div>
         </div>
 
         <!-- Slot B -->
         <div class="slot" id="slot-b">
           <div class="slot-header">
             <span class="slot-badge slot-badge--b">B</span>
-            <span class="slot-label">Audio B</span>
+            <span class="slot-label">Input B</span>
           </div>
           <div class="slot-controls">
             <button class="btn btn-secondary" id="btn-upload-b">Upload file</button>
@@ -363,6 +363,7 @@
             <canvas id="wave-preview-b" class="wave-canvas" width="360" height="72"></canvas>
           </div>
           <div class="slot-info">No audio loaded</div>
+          <div class="slot-playback"></div>
         </div>
 
       </div>
@@ -375,7 +376,7 @@
           <span class="section-kicker">Step 02</span>
           <h2 class="section-title">Preprocessing</h2>
         </div>
-        <p class="section-caption">Optional cleanup before the scoring methods run.</p>
+        <p class="section-caption">Enabled by default to stabilize comparisons before the scoring methods run.</p>
       </div>
       <div class="preprocessing-row">
         <label class="preproc-item">
@@ -414,6 +415,7 @@
         <label class="settings-field analysis-goal-field" for="analysis-goal">
           <span id="analysis-goal-label">Analysis goal</span>
           <select id="analysis-goal">
+            <option value="sound-mirror">Hai audio có giống nhau về âm thanh phonetic không?</option>
             <option value="same-speaker">Hai audio có giống/cùng giọng nói không?</option>
             <option value="pronunciation">Hai audio có giống cách phát âm/cùng câu không?</option>
             <option value="overall-sound">Hai audio có giống âm thanh tổng thể không?</option>
@@ -427,7 +429,7 @@
       <div class="methods-toolbar">
         <button class="btn btn-outline btn-methods-all" id="btn-enable-all-methods" type="button" aria-label="Enable all analysis methods">
           <span class="btn-icon" aria-hidden="true">＋</span>
-          Enable full methods
+          Full methods enabled
         </button>
       </div>
       <div id="methods-container" class="methods-list"></div>
@@ -472,11 +474,11 @@
         <h3 class="viz-title">Mel spectrograms</h3>
         <div class="spec-grid">
           <div>
-            <div class="spec-label">Audio A</div>
+            <div class="spec-label">Input A</div>
             <canvas id="canvas-spec-a" class="viz-canvas" width="440" height="140"></canvas>
           </div>
           <div>
-            <div class="spec-label">Audio B</div>
+            <div class="spec-label">Input B</div>
             <canvas id="canvas-spec-b" class="viz-canvas" width="440" height="140"></canvas>
           </div>
         </div>
