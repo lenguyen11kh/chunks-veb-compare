@@ -1,4 +1,4 @@
-# CHUNKS Audio Similarity Analyzer
+# CHUNKS Sound Mirror
 
 Static browser app for comparing two audio clips using acoustic feature analysis. Audio processing runs locally in the browser.
 
