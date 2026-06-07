@@ -15,6 +15,7 @@ import {
   melSpectrogramSimilarity,
 } from './dsp.js';
 import { dtw, dtwScalar, dtw2D, distanceToSimilarity } from './dtw.js';
+import { runWav2VecSimilarity } from './wav2vecMethod.js';
 
 function simLabel(score) {
   if (score >= 80) return 'Very similar';
@@ -204,6 +205,13 @@ export const METHOD_DEFS = [
     subtitle: 'Phoneme boundary transition rhythm',
     defaultOn: false,
     run: (a, b) => runSpectralFluxSimilarity(a, b),
+  },
+  {
+    id: 'wav2vec',
+    name: 'wav2vec Embedding',
+    subtitle: 'Learned cross-language phonetic features · ~90MB first load',
+    defaultOn: false,
+    run: (a, b) => runWav2VecSimilarity(a, b),
   },
   {
     id: 'formant',

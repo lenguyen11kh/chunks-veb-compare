@@ -18,6 +18,7 @@ import {
   renderMethodPerformancePanel,
 } from './ui.js';
 import { computeMethodPerformance } from './methodEvaluator.js';
+import { getModelState } from './wav2vecMethod.js';
 import {
   drawMiniWaveform,
   drawStackedWaveforms,
@@ -328,6 +329,12 @@ async function runComparison() {
 
     // Run analysis (methods can be slow; yield to keep UI alive)
     await new Promise(r => setTimeout(r, 0));
+    if (state.enabledMethods.has('wav2vec')) {
+      const { state: s } = getModelState();
+      if (s === 'idle') {
+        showToast('wav2vec: downloading model (~90MB), this may take a minute…', 'success');
+      }
+    }
     const results = await runAnalysis(procA.samples, procB.samples, state.enabledMethods, {});
     state.lastResults = results;
 
